@@ -1,0 +1,23 @@
+[project]
+name = "pitmind"
+version = "0.1.0"
+description = "AI Driver Coach - real-time race engineer for ACC telemetry"
+requires-python = ">=3.11"
+dependencies = [
+    "numpy",
+    "pandas",
+    "scipy",
+    "streamlit",
+    "plotly",
+    "pyyaml",
+]
+
+[project.optional-dependencies]
+recorder = ["pyaccsharedmemory"]
+test = ["pytest"]
+
+[tool.setuptools.packages.find]
+include = ["pitmind*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

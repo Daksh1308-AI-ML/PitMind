@@ -1,0 +1,22 @@
+detection:
+  min_brake_pressure: 0.2
+  throttle_resume: 0.3
+  sample_rate_hz: 60
+
+ranges:
+  brake_point_delta_m:
+    significant: 3.0
+    potential: 10.0
+    strong: 15.0
+  apex_speed_delta_kmh: 5.0
+  throttle_delay_s: 0.1
+  exit_speed_delta_kmh: 3.0
+  steering_excess: 0.15
+
+timeloss:
+  mode: kinematic
+
+synthetic:
+  laps: 12
+  track_kind: generic_f1
+  reference_lap_rank: 1

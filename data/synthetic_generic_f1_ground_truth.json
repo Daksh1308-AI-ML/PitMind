@@ -1,0 +1,211 @@
+{
+  "track": {
+    "kind": "generic_f1",
+    "length_m": 7579.7,
+    "corners": 6
+  },
+  "laps": [
+    {
+      "lap": 1,
+      "clean": true,
+      "corners": [
+        {
+          "corner": "T1",
+          "start_s": 2600.0
+        },
+        {
+          "corner": "T2",
+          "start_s": 3486.4
+        },
+        {
+          "corner": "T3",
+          "start_s": 5080.6
+        },
+        {
+          "corner": "T4",
+          "start_s": 5536.2
+        },
+        {
+          "corner": "T5",
+          "start_s": 6841.0
+        },
+        {
+          "corner": "T6",
+          "start_s": 7527.3
+        }
+      ]
+    },
+    {
+      "lap": 2,
+      "clean": true,
+      "corners": [
+        {
+          "corner": "T1",
+          "start_s": 2600.0
+        },
+        {
+          "corner": "T2",
+          "start_s": 3486.4
+        },
+        {
+          "corner": "T3",
+          "start_s": 5080.6
+        },
+        {
+          "corner": "T4",
+          "start_s": 5536.2
+        },
+        {
+          "corner": "T5",
+          "start_s": 6841.0
+        },
+        {
+          "corner": "T6",
+          "start_s": 7527.3
+        }
+      ]
+    },
+    {
+      "lap": 3,
+      "clean": false,
+      "corners": [
+        {
+          "corner": "T1",
+          "start_s": 2600.0,
+          "throttle_delay_s": 0.21282836679094275
+        },
+        {
+          "corner": "T2",
+          "start_s": 3486.4
+        },
+        {
+          "corner": "T3",
+          "start_s": 5080.6,
+          "apex_deficit_kmh": 12.231349425374024
+        },
+        {
+          "corner": "T4",
+          "start_s": 5536.2,
+          "apex_deficit_kmh": 13.729082717168103,
+          "exit_deficit_kmh": 7.440053621749647
+        },
+        {
+          "corner": "T5",
+          "start_s": 6841.0,
+          "brake_shift_m": 6.022492573203795
+        },
+        {
+          "corner": "T6",
+          "start_s": 7527.3,
+          "brake_shift_m": 5.271265679216862
+        }
+      ]
+    },
+    {
+      "lap": 4,
+      "clean": false,
+      "corners": [
+        {
+          "corner": "T1",
+          "start_s": 2600.0,
+          "brake_shift_m": 6.1277141266469,
+          "throttle_delay_s": 0.28875236181981134
+        },
+        {
+          "corner": "T2",
+          "start_s": 3486.4
+        },
+        {
+          "corner": "T3",
+          "start_s": 5080.6
+        },
+        {
+          "corner": "T4",
+          "start_s": 5536.2
+        },
+        {
+          "corner": "T5",
+          "start_s": 6841.0
+        },
+        {
+          "corner": "T6",
+          "start_s": 7527.3
+        }
+      ]
+    },
+    {
+      "lap": 5,
+      "clean": false,
+      "corners": [
+        {
+          "corner": "T1",
+          "start_s": 2600.0
+        },
+        {
+          "corner": "T2",
+          "start_s": 3486.4,
+          "brake_shift_m": 15.267742869028543,
+          "throttle_delay_s": 0.15492576891968396,
+          "exit_deficit_kmh": 5.576268600173911
+        },
+        {
+          "corner": "T3",
+          "start_s": 5080.6,
+          "brake_shift_m": -4.959122182414422,
+          "exit_deficit_kmh": 6.727256318875044
+        },
+        {
+          "corner": "T4",
+          "start_s": 5536.2,
+          "brake_shift_m": 16.05851771517328
+        },
+        {
+          "corner": "T5",
+          "start_s": 6841.0,
+          "throttle_delay_s": 0.29391479085306804
+        },
+        {
+          "corner": "T6",
+          "start_s": 7527.3
+        }
+      ]
+    },
+    {
+      "lap": 6,
+      "clean": false,
+      "corners": [
+        {
+          "corner": "T1",
+          "start_s": 2600.0,
+          "apex_deficit_kmh": 7.960282670475986
+        },
+        {
+          "corner": "T2",
+          "start_s": 3486.4,
+          "brake_shift_m": 6.837972202409837,
+          "apex_deficit_kmh": 12.735578990339947
+        },
+        {
+          "corner": "T3",
+          "start_s": 5080.6,
+          "throttle_delay_s": 0.13449706128309694,
+          "exit_deficit_kmh": 6.78837006792765
+        },
+        {
+          "corner": "T4",
+          "start_s": 5536.2
+        },
+        {
+          "corner": "T5",
+          "start_s": 6841.0,
+          "brake_shift_m": 6.303176155189863,
+          "apex_deficit_kmh": 6.864894292097102
+        },
+        {
+          "corner": "T6",
+          "start_s": 7527.3
+        }
+      ]
+    }
+  ]
+}
