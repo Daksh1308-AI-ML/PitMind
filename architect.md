@@ -24,6 +24,12 @@
                                   ▼
           synthetic/generator.py ─┼────► data/*.csv   (dev/test laps)
           (drives real circuits)  │
+                                  │
+          F1 (public telemetry)   │
+              FastF1 / OpenF1     │
+                      │           │
+                      ▼           │
+          f1/fastf1_bridge.py ────┼────► session DataFrame  (real F1 laps)
                       │
                       ▼
           pitmind/  (analysis pipeline, pure numpy/pandas)
@@ -33,6 +39,11 @@
                       │
                       ▼
           dashboard/app.py  (Streamlit + Plotly)
+              └─ folders: telemetry · corners · mistakes ·
+                 potential lap · coaching · 🗺️ track map · 🏎️ F1
+                      │
+          tools/tune.py  (CLI: full-pipeline validation report +
+                          config threshold tuning, `--write`)
 ```
 
 Guiding principle (from concept doc):
@@ -61,6 +72,59 @@ chord-curvature logic, radius from peak curvature). `synthetic/generator.py` dri
 with a discrete-corner kinematic planner so per-corner mistakes can be injected with known labels.
 This keeps the model simple **and** realistic enough to develop/test against.
 
+### Data capture & validation tooling
+
+- `recorder/record_acc.py` — reads ACC's shared memory (`pyaccsharedmemory`) and writes telemetry
+  in the exact same CSV contract as the synthetic generator; optionally splits into per-lap CSVs
+  via `pitmind/segmentation`. Field mapping: `Graphics.normalized_car_position` → `track_position`,
+  `Graphics.car_coordinates[player_car_id]` → `x, y, z` (world meters, feeds corner detection),
+  `Graphics.completed_lap + 1` → `lap_number`, `Graphics.clock` → `timestamp`, Physics fields for
+  speed/throttle/brake/steering/gear/rpm.
+- `tools/tune.py` — runs the full pipeline on any recorded/synthetic CSV and prints a validation
+  report (corners, mistakes, time loss, potential lap, coaching), then recommends `config.yaml`
+  thresholds to hit a target flag-rate (`--write` applies them). Thresholds are only tuned on
+  **real** laps before calling detection done.
+
+### Dashboard track map
+
+`dashboard/map_plot.py` renders the actual circuit layout from a lap's `x, y` path (re-centred to
+meters from track centre, equal aspect) colored by `speed_kmh`, with detected-corner apex markers
+and a start/finish line. Because corners/layout come from the driven path (never a GeoJSON), this
+works identically for synthetic data and real recorded ACC laps.
+
+### F1 data bridge (`f1/`)
+
+Extends the same contract to **real Formula 1 telemetry**. `f1/fastf1_bridge.py` converts a FastF1
+session (public F1 timing/telemetry) into the exact 13-column session DataFrame the pipeline
+consumes, so the full analysis core runs on real F1 drivers with zero analysis changes:
+
+- Field mapping: `Speed`→`speed_kmh`; `Throttle` (0–100 %)→`throttle` (0–1, ÷100);
+  `Brake` (bool)→`brake` (0/1 float); `nGear`→`gear`; `RPM`→`rpm`;
+  `X`/`Y`/`Z` (1/10 m)→`x`/`y`/`z` (meters, ÷10).
+- `lap_number` is taken directly from FastF1's per-lap telemetry; `sector` 1..3 from lap sector
+  times; `timestamp` from session time.
+- `track_position` is **synthesized** as the normalized cumulative arc length of the x/y path —
+  the one non-trivial derivation (F1 broadcasts no `track_position`), and the basis on which
+  corner detection still works despite ~4 Hz sampling (the chord-curvature logic resamples onto
+  its own 4000-pt arc grid).
+- **Capability limits:** F1 broadcasts no `steering` channel and `Brake` is boolean. `mistakes.py`
+  therefore needs a channels/capability flag to prune `EXCESSIVE_STEERING` (and any
+  steering-dependent logic) on F1 inputs while keeping full behaviour for ACC. Brake-point,
+  apex-speed, throttle-on and exit-speed mistakes all still work on F1 data.
+- License note: FastF1/OpenF1 are **educational / non-commercial** (CC BY-NC-SA). "F1 official"
+  here means professional-grade analysis of public F1 data — as opposed to an FOM-commercial
+  license, which is a separate business thread (out of scope for the engineering roadmap).
+
+## Roadmap: "Reach F1" mapping
+
+| Milestone | Content | Status |
+|---|---|---|
+| M0 | Validate models on **real recorded ACC laps** (`tools/tune.py --write`) | open (todo §5 blocker) |
+| M1 | `f1/fastf1_bridge.py` + CLI + contract tests on a committed fixture | open |
+| M2 | Capability-aware mistakes + F1 sanity validation (corner counts, time-loss ranges) | open |
+| M3 | Multi-driver F1 delta + `🏎️ F1` dashboard tab (reuses track map) | open |
+| M4 | Live race-engineer view + corner heat-map overlays + licensing README | open |
+
 ## Data Flow (one lap)
 
 1. Raw CSV → `preprocess` → fixed-rate, clean time series.
@@ -71,7 +135,11 @@ This keeps the model simple **and** realistic enough to develop/test against.
 6. `mistakes` → per-corner deviations + mistake classes + confidence.
 7. `timeloss` → estimated seconds lost (per corner, per lap, potential lap).
 8. `coaching` → directive list ("Brake 12m later into T3").
-9. `dashboard` → lap list, telemetry plots, corner table, mistake cards, overlay, potential lap.
+9. `dashboard` → lap list, telemetry plots, corner table, mistake cards, overlay, potential lap,
+   and a **circuit track map** (lap `x,y` path colored by speed + corner apex markers +
+   start/finish line).
+10. `tools/tune.py` → same pipeline as a CLI that prints a validation report and recommends
+    `config.yaml` threshold values (flag-rate based), optionally writing them back (`--write`).
 
 ## Tech Stack
 

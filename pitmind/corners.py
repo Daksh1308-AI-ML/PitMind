@@ -63,14 +63,18 @@ def track_length_m(lap: pd.DataFrame) -> float:
     return float(np.sum(np.hypot(dx, dy)))
 
 
-def curvature_profile(lap: pd.DataFrame, L: float) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-    """Return (tp, curvature, turn_angle) arrays.
+def curvature_profile(lap: pd.DataFrame, L: float) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    """Return (tp, curvature, turn_angle, heading) arrays.
 
     Curvature is signed (rad/m); negative for right-handers. Instead of raw
     per-sample heading differences (which are a random walk when the path has
     position jitter), the turning angle at point i is measured between two long
     chords: (i-w -> i) and (i -> i+w). Chord directions average out jitter, so
     straights collapse to ~0 and only sustained turning registers.
+
+    heading = forward chord direction (i -> i+w)
+    turn = heading - backward_heading (wrapped to [-pi, pi])
+    curvature = turn / (2 * w * ds)
     """
     grid = resample_track_lap(lap)
     x = grid["x"].to_numpy()
@@ -81,18 +85,18 @@ def curvature_profile(lap: pd.DataFrame, L: float) -> tuple[np.ndarray, np.ndarr
     i = np.arange(w, GRID_N - w)
     d1 = np.column_stack((x[i] - x[i - w], y[i] - y[i - w]))
     d2 = np.column_stack((x[i + w] - x[i], y[i + w] - y[i]))
-    ang1 = np.arctan2(d1[:, 1], d1[:, 0])
-    ang2 = np.arctan2(d2[:, 1], d2[:, 0])
+    ang1 = np.arctan2(d1[:, 1], d1[:, 0])   # backward chord direction
+    ang2 = np.arctan2(d2[:, 1], d2[:, 0])   # forward chord direction = heading
     turn = ang2 - ang1
     turn = (turn + np.pi) % (2.0 * np.pi) - np.pi  # wrap to [-pi, pi]
     curvature = turn / (2.0 * w * ds)
-    return tp0[i], curvature, turn
+    return tp0[i], curvature, turn, ang2
 
 
 def detect_corners(lap: pd.DataFrame, cfg) -> list[CornerRegion]:
     """Detect corners in a lap (run on a clean/reference lap)."""
     L = track_length_m(lap)
-    tp, curv, turn = curvature_profile(lap, L)
+    tp, curv, turn, heading = curvature_profile(lap, L)
 
     thresh = cfg.detection.corner_curv_threshold
     engaged = np.abs(curv) > thresh
@@ -120,10 +124,13 @@ def detect_corners(lap: pd.DataFrame, cfg) -> list[CornerRegion]:
 
     regions: list[CornerRegion] = []
     for si, ei in merged:
-        total_turn = float(np.sum(turn[si:ei]))  # telescopes to net heading change
+        region_curv = curv[si:ei]
+        # Net heading change = heading at end - heading at start (wrapped)
+        total_turn = heading[ei - 1] - heading[si]
+        total_turn = (total_turn + np.pi) % (2.0 * np.pi) - np.pi
         if abs(total_turn) < np.deg2rad(cfg.ranges.corner_angle_deg):
             continue
-        pk = int(np.argmax(np.abs(seg)))
+        pk = int(np.argmax(np.abs(region_curv)))
         apex_tp = float(tp[si + pk])
         start_tp = float(tp[si])
         end_tp = float(tp[ei - 1] if ei - 1 > si else tp[si])
@@ -137,7 +144,7 @@ def detect_corners(lap: pd.DataFrame, cfg) -> list[CornerRegion]:
                 end_tp=end_tp,
                 apex_tp=apex_tp,
                 angle_deg=np.rad2deg(total_turn),
-                radius_m=1.0 / max(np.abs(seg).max(), 1e-9),
+                radius_m=1.0 / max(np.abs(region_curv).max(), 1e-9),
                 min_speed_kmh=min_sp,
             )
         )

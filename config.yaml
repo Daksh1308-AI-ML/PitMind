@@ -19,7 +19,13 @@ ranges:
 timeloss:
   mode: kinematic
 
+# Threshold-tuning knobs for `python -m tools.tune` (flag-rate targets).
+tuning:
+  target_flag_rate: 0.30   # recommended threshold flags ~30% of samples
+  min_flag_pct: 0.10       # reject recommendations that flag less than this
+  max_flag_pct: 0.60       # reject recommendations that flag more than this
+
 synthetic:
   laps: 12
-  track_kind: generic_f1
+  track_kind: monza
   reference_lap_rank: 1

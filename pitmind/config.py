@@ -55,6 +55,7 @@ class Config:
     ranges: RangesConfig = field(default_factory=RangesConfig)
     timeloss_mode: str = "kinematic"
     synthetic: dict = field(default_factory=dict)
+    tuning: dict = field(default_factory=dict)
 
     @classmethod
     def from_file(cls, path: Path = DEFAULT_CONFIG_PATH) -> "Config":
@@ -69,4 +70,5 @@ class Config:
             ranges=RangesConfig(**ranges),
             timeloss_mode=(raw.get("timeloss", {}) or {}).get("mode", "kinematic"),
             synthetic=raw.get("synthetic", {}) or {},
+            tuning=raw.get("tuning", {}) or {},
         )

@@ -1,8 +1,8 @@
 {
   "track": {
-    "kind": "generic_f1",
-    "length_m": 7579.7,
-    "corners": 6
+    "kind": "monza",
+    "length_m": 5786.0,
+    "corners": 8
   },
   "laps": [
     {
@@ -11,27 +11,35 @@
       "corners": [
         {
           "corner": "T1",
-          "start_s": 2600.0
+          "start_s": 585.8
         },
         {
           "corner": "T2",
-          "start_s": 3486.4
+          "start_s": 759.4
         },
         {
           "corner": "T3",
-          "start_s": 5080.6
+          "start_s": 967.7
         },
         {
           "corner": "T4",
-          "start_s": 5536.2
+          "start_s": 1798.0
         },
         {
           "corner": "T5",
-          "start_s": 6841.0
+          "start_s": 2159.6
         },
         {
           "corner": "T6",
-          "start_s": 7527.3
+          "start_s": 2524.1
+        },
+        {
+          "corner": "T8",
+          "start_s": 3598.9
+        },
+        {
+          "corner": "T9",
+          "start_s": 4785.0
         }
       ]
     },
@@ -41,27 +49,35 @@
       "corners": [
         {
           "corner": "T1",
-          "start_s": 2600.0
+          "start_s": 585.8
         },
         {
           "corner": "T2",
-          "start_s": 3486.4
+          "start_s": 759.4
         },
         {
           "corner": "T3",
-          "start_s": 5080.6
+          "start_s": 967.7
         },
         {
           "corner": "T4",
-          "start_s": 5536.2
+          "start_s": 1798.0
         },
         {
           "corner": "T5",
-          "start_s": 6841.0
+          "start_s": 2159.6
         },
         {
           "corner": "T6",
-          "start_s": 7527.3
+          "start_s": 2524.1
+        },
+        {
+          "corner": "T8",
+          "start_s": 3598.9
+        },
+        {
+          "corner": "T9",
+          "start_s": 4785.0
         }
       ]
     },
@@ -71,33 +87,41 @@
       "corners": [
         {
           "corner": "T1",
-          "start_s": 2600.0,
-          "throttle_delay_s": 0.21282836679094275
+          "start_s": 585.8,
+          "apex_deficit_kmh": 13.266362408281514
         },
         {
           "corner": "T2",
-          "start_s": 3486.4
+          "start_s": 759.4
         },
         {
           "corner": "T3",
-          "start_s": 5080.6,
-          "apex_deficit_kmh": 12.231349425374024
+          "start_s": 967.7,
+          "brake_shift_m": 7.947582539643957,
+          "throttle_delay_s": 0.25717645253614474,
+          "exit_deficit_kmh": 7.715765696643414
         },
         {
           "corner": "T4",
-          "start_s": 5536.2,
-          "apex_deficit_kmh": 13.729082717168103,
-          "exit_deficit_kmh": 7.440053621749647
+          "start_s": 1798.0,
+          "throttle_delay_s": 0.26481161841434653
         },
         {
           "corner": "T5",
-          "start_s": 6841.0,
-          "brake_shift_m": 6.022492573203795
+          "start_s": 2159.6
         },
         {
           "corner": "T6",
-          "start_s": 7527.3,
-          "brake_shift_m": 5.271265679216862
+          "start_s": 2524.1
+        },
+        {
+          "corner": "T8",
+          "start_s": 3598.9,
+          "brake_shift_m": 7.965533918696453
+        },
+        {
+          "corner": "T9",
+          "start_s": 4785.0
         }
       ]
     },
@@ -107,29 +131,41 @@
       "corners": [
         {
           "corner": "T1",
-          "start_s": 2600.0,
-          "brake_shift_m": 6.1277141266469,
-          "throttle_delay_s": 0.28875236181981134
+          "start_s": 585.8,
+          "brake_shift_m": -6.223893536565463
         },
         {
           "corner": "T2",
-          "start_s": 3486.4
+          "start_s": 759.4,
+          "apex_deficit_kmh": 6.927033983885275
         },
         {
           "corner": "T3",
-          "start_s": 5080.6
+          "start_s": 967.7,
+          "brake_shift_m": 8.954572956821783,
+          "exit_deficit_kmh": 9.203739422942164
         },
         {
           "corner": "T4",
-          "start_s": 5536.2
+          "start_s": 1798.0
         },
         {
           "corner": "T5",
-          "start_s": 6841.0
+          "start_s": 2159.6
         },
         {
           "corner": "T6",
-          "start_s": 7527.3
+          "start_s": 2524.1
+        },
+        {
+          "corner": "T8",
+          "start_s": 3598.9,
+          "throttle_delay_s": 0.10654461128413134
+        },
+        {
+          "corner": "T9",
+          "start_s": 4785.0,
+          "throttle_delay_s": 0.21745847883499947
         }
       ]
     },
@@ -139,34 +175,44 @@
       "corners": [
         {
           "corner": "T1",
-          "start_s": 2600.0
+          "start_s": 585.8,
+          "brake_shift_m": 17.20945711491534,
+          "throttle_delay_s": 0.2556185669797659
         },
         {
           "corner": "T2",
-          "start_s": 3486.4,
-          "brake_shift_m": 15.267742869028543,
-          "throttle_delay_s": 0.15492576891968396,
-          "exit_deficit_kmh": 5.576268600173911
+          "start_s": 759.4,
+          "apex_deficit_kmh": 8.699353372335278
         },
         {
           "corner": "T3",
-          "start_s": 5080.6,
-          "brake_shift_m": -4.959122182414422,
-          "exit_deficit_kmh": 6.727256318875044
+          "start_s": 967.7
         },
         {
           "corner": "T4",
-          "start_s": 5536.2,
-          "brake_shift_m": 16.05851771517328
+          "start_s": 1798.0,
+          "brake_shift_m": -7.496663770465762
         },
         {
           "corner": "T5",
-          "start_s": 6841.0,
-          "throttle_delay_s": 0.29391479085306804
+          "start_s": 2159.6,
+          "brake_shift_m": 18.314189518563474,
+          "apex_deficit_kmh": 7.692105554799028,
+          "throttle_delay_s": 0.1822514357546508
         },
         {
           "corner": "T6",
-          "start_s": 7527.3
+          "start_s": 2524.1,
+          "exit_deficit_kmh": 7.923931863052507
+        },
+        {
+          "corner": "T8",
+          "start_s": 3598.9,
+          "brake_shift_m": -3.006701508034185
+        },
+        {
+          "corner": "T9",
+          "start_s": 4785.0
         }
       ]
     },
@@ -176,34 +222,41 @@
       "corners": [
         {
           "corner": "T1",
-          "start_s": 2600.0,
-          "apex_deficit_kmh": 7.960282670475986
+          "start_s": 585.8,
+          "exit_deficit_kmh": 4.172597999352507
         },
         {
           "corner": "T2",
-          "start_s": 3486.4,
-          "brake_shift_m": 6.837972202409837,
-          "apex_deficit_kmh": 12.735578990339947
+          "start_s": 759.4
         },
         {
           "corner": "T3",
-          "start_s": 5080.6,
-          "throttle_delay_s": 0.13449706128309694,
-          "exit_deficit_kmh": 6.78837006792765
+          "start_s": 967.7,
+          "exit_deficit_kmh": 10.780486496684006
         },
         {
           "corner": "T4",
-          "start_s": 5536.2
+          "start_s": 1798.0,
+          "brake_shift_m": -9.917926833879207
         },
         {
           "corner": "T5",
-          "start_s": 6841.0,
-          "brake_shift_m": 6.303176155189863,
-          "apex_deficit_kmh": 6.864894292097102
+          "start_s": 2159.6,
+          "brake_shift_m": -5.984082853604123
         },
         {
           "corner": "T6",
-          "start_s": 7527.3
+          "start_s": 2524.1
+        },
+        {
+          "corner": "T8",
+          "start_s": 3598.9,
+          "brake_shift_m": 8.169397896916735,
+          "apex_deficit_kmh": 14.462254455647182
+        },
+        {
+          "corner": "T9",
+          "start_s": 4785.0
         }
       ]
     },
@@ -213,30 +266,45 @@
       "corners": [
         {
           "corner": "T1",
-          "start_s": 2600.0,
-          "exit_deficit_kmh": 8.628891849267397
+          "start_s": 585.8,
+          "exit_deficit_kmh": 4.056854506381343
         },
         {
           "corner": "T2",
-          "start_s": 3486.4
+          "start_s": 759.4,
+          "brake_shift_m": 12.123696761558366
         },
         {
           "corner": "T3",
-          "start_s": 5080.6
+          "start_s": 967.7,
+          "exit_deficit_kmh": 4.20431026807302
         },
         {
           "corner": "T4",
-          "start_s": 5536.2
+          "start_s": 1798.0,
+          "apex_deficit_kmh": 11.236777283729749
         },
         {
           "corner": "T5",
-          "start_s": 6841.0
+          "start_s": 2159.6,
+          "apex_deficit_kmh": 11.72721793765161,
+          "throttle_delay_s": 0.12243419915562809
         },
         {
           "corner": "T6",
-          "start_s": 7527.3,
-          "brake_shift_m": 14.789887061795993,
-          "throttle_delay_s": 0.22626763912283365
+          "start_s": 2524.1,
+          "apex_deficit_kmh": 11.485843811003065,
+          "exit_deficit_kmh": 6.394617184274583
+        },
+        {
+          "corner": "T8",
+          "start_s": 3598.9
+        },
+        {
+          "corner": "T9",
+          "start_s": 4785.0,
+          "brake_shift_m": 6.60127987319893,
+          "throttle_delay_s": 0.23233347797975915
         }
       ]
     },
@@ -246,34 +314,46 @@
       "corners": [
         {
           "corner": "T1",
-          "start_s": 2600.0
+          "start_s": 585.8
         },
         {
           "corner": "T2",
-          "start_s": 3486.4,
-          "brake_shift_m": 19.346858150283907,
-          "apex_deficit_kmh": 7.219184815961722,
-          "throttle_delay_s": 0.23079133593167536,
-          "exit_deficit_kmh": 9.704948504454583
+          "start_s": 759.4,
+          "brake_shift_m": 14.652655330754344,
+          "exit_deficit_kmh": 7.762709499283706
         },
         {
           "corner": "T3",
-          "start_s": 5080.6,
-          "exit_deficit_kmh": 4.616495161718393
+          "start_s": 967.7,
+          "brake_shift_m": 19.738086180684462
         },
         {
           "corner": "T4",
-          "start_s": 5536.2
+          "start_s": 1798.0,
+          "brake_shift_m": 16.3443501473973,
+          "apex_deficit_kmh": 11.927582304053814
         },
         {
           "corner": "T5",
-          "start_s": 6841.0,
-          "exit_deficit_kmh": 5.628916611799648
+          "start_s": 2159.6,
+          "brake_shift_m": 11.471910010116188,
+          "exit_deficit_kmh": 11.756867972745388
         },
         {
           "corner": "T6",
-          "start_s": 7527.3,
-          "apex_deficit_kmh": 10.652991848232254
+          "start_s": 2524.1,
+          "brake_shift_m": 8.08431866330068
+        },
+        {
+          "corner": "T8",
+          "start_s": 3598.9,
+          "throttle_delay_s": 0.18534536648949462
+        },
+        {
+          "corner": "T9",
+          "start_s": 4785.0,
+          "brake_shift_m": 19.732257941954813,
+          "exit_deficit_kmh": 4.489316996558574
         }
       ]
     },
@@ -283,33 +363,40 @@
       "corners": [
         {
           "corner": "T1",
-          "start_s": 2600.0
+          "start_s": 585.8
         },
         {
           "corner": "T2",
-          "start_s": 3486.4,
-          "brake_shift_m": 8.916116486602556
+          "start_s": 759.4
         },
         {
           "corner": "T3",
-          "start_s": 5080.6,
-          "brake_shift_m": 14.796208958080234,
-          "apex_deficit_kmh": 7.280905292644184,
-          "throttle_delay_s": 0.25500144457972057
+          "start_s": 967.7,
+          "brake_shift_m": -8.487036834612418,
+          "apex_deficit_kmh": 7.032765020204826
         },
         {
           "corner": "T4",
-          "start_s": 5536.2,
-          "apex_deficit_kmh": 11.485408779022904
+          "start_s": 1798.0,
+          "apex_deficit_kmh": 15.232564483934556
         },
         {
           "corner": "T5",
-          "start_s": 6841.0
+          "start_s": 2159.6
         },
         {
           "corner": "T6",
-          "start_s": 7527.3,
-          "throttle_delay_s": 0.1340973947455159
+          "start_s": 2524.1,
+          "brake_shift_m": 6.635929643660591,
+          "apex_deficit_kmh": 9.556346664830961
+        },
+        {
+          "corner": "T8",
+          "start_s": 3598.9
+        },
+        {
+          "corner": "T9",
+          "start_s": 4785.0
         }
       ]
     },
@@ -319,31 +406,37 @@
       "corners": [
         {
           "corner": "T1",
-          "start_s": 2600.0
+          "start_s": 585.8
         },
         {
           "corner": "T2",
-          "start_s": 3486.4
+          "start_s": 759.4
         },
         {
           "corner": "T3",
-          "start_s": 5080.6,
-          "exit_deficit_kmh": 4.82312321900541
+          "start_s": 967.7
         },
         {
           "corner": "T4",
-          "start_s": 5536.2
+          "start_s": 1798.0
         },
         {
           "corner": "T5",
-          "start_s": 6841.0,
-          "brake_shift_m": 13.977736788822313,
-          "throttle_delay_s": 0.2128469812998975,
-          "exit_deficit_kmh": 5.751312367219922
+          "start_s": 2159.6,
+          "brake_shift_m": 13.61034586989992
         },
         {
           "corner": "T6",
-          "start_s": 7527.3
+          "start_s": 2524.1,
+          "apex_deficit_kmh": 8.066386608893449
+        },
+        {
+          "corner": "T8",
+          "start_s": 3598.9
+        },
+        {
+          "corner": "T9",
+          "start_s": 4785.0
         }
       ]
     },
@@ -353,30 +446,41 @@
       "corners": [
         {
           "corner": "T1",
-          "start_s": 2600.0,
-          "brake_shift_m": 7.296751691850961
+          "start_s": 585.8,
+          "exit_deficit_kmh": 11.216941505481996
         },
         {
           "corner": "T2",
-          "start_s": 3486.4,
-          "apex_deficit_kmh": 12.014271642702607
+          "start_s": 759.4
         },
         {
           "corner": "T3",
-          "start_s": 5080.6,
-          "brake_shift_m": 19.731045337154796
+          "start_s": 967.7
         },
         {
           "corner": "T4",
-          "start_s": 5536.2
+          "start_s": 1798.0,
+          "throttle_delay_s": 0.12103946988806245
         },
         {
           "corner": "T5",
-          "start_s": 6841.0
+          "start_s": 2159.6
         },
         {
           "corner": "T6",
-          "start_s": 7527.3
+          "start_s": 2524.1,
+          "brake_shift_m": -5.293680447451527,
+          "throttle_delay_s": 0.14424551208105243,
+          "exit_deficit_kmh": 8.250703464255253
+        },
+        {
+          "corner": "T8",
+          "start_s": 3598.9
+        },
+        {
+          "corner": "T9",
+          "start_s": 4785.0,
+          "apex_deficit_kmh": 6.629466000999253
         }
       ]
     },
@@ -386,29 +490,46 @@
       "corners": [
         {
           "corner": "T1",
-          "start_s": 2600.0
+          "start_s": 585.8,
+          "apex_deficit_kmh": 11.990309645804254,
+          "throttle_delay_s": 0.297719030566424,
+          "exit_deficit_kmh": 8.636430251832483
         },
         {
           "corner": "T2",
-          "start_s": 3486.4
+          "start_s": 759.4,
+          "throttle_delay_s": 0.2772038824482904
         },
         {
           "corner": "T3",
-          "start_s": 5080.6
+          "start_s": 967.7
         },
         {
           "corner": "T4",
-          "start_s": 5536.2,
-          "brake_shift_m": 9.082383889731634,
-          "exit_deficit_kmh": 10.212673500403213
+          "start_s": 1798.0,
+          "apex_deficit_kmh": 6.096848460325052
         },
         {
           "corner": "T5",
-          "start_s": 6841.0
+          "start_s": 2159.6,
+          "brake_shift_m": 12.091587643393504
         },
         {
           "corner": "T6",
-          "start_s": 7527.3
+          "start_s": 2524.1,
+          "brake_shift_m": -3.594975454447126,
+          "exit_deficit_kmh": 8.47594428182019
+        },
+        {
+          "corner": "T8",
+          "start_s": 3598.9,
+          "apex_deficit_kmh": 7.067855501040304
+        },
+        {
+          "corner": "T9",
+          "start_s": 4785.0,
+          "apex_deficit_kmh": 5.129435161502205,
+          "exit_deficit_kmh": 5.782145141696693
         }
       ]
     }

@@ -17,7 +17,7 @@ recorder = ["pyaccsharedmemory"]
 test = ["pytest"]
 
 [tool.setuptools.packages.find]
-include = ["pitmind*"]
+include = ["pitmind*", "recorder*", "tools*", "dashboard*", "synthetic*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

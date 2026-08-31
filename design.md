@@ -15,6 +15,9 @@
 | Time loss | Kinematic heuristic | ML later once labeled data exists |
 | Coaching | Templates | Optional LLM hook isolated (doc §21) |
 | UI | Streamlit + Plotly | Quick MVP dashboards |
+| Circuit map | Drawn from the lap's `x,y` path | Never from a GeoJSON — works for synthetic **and** recorded laps |
+| F1 data | FastF1 (public telemetry) → CSV contract | FastF1/OpenF1 are educational/non-commercial (CC BY-NC-SA) |
+| F1 sampling | ~4 Hz coarse broadcast | Chord-curvature resamples to its own arc grid — OK |
 
 ## Synthetic Track Data (fixtures only)
 
@@ -136,6 +139,51 @@ Best: "Carry 9 km/h more speed into Turn 3."
 - Precision over conversation.
 - Short, actionable, non-repetitive.
 - Not every mistake triggers feedback — priority system (doc §18).
+
+## Dashboard Circuit Track Map
+
+The dashboard shows the actual circuit layout (a "track image") by plotting a lap's `x, y`
+world coordinates:
+
+- `dashboard/map_plot.py` re-centres each lap by subtracting the lap-1 mean so axis labels read
+  in **meters from track centre** (raw ACC/GeoJSON coords are UTM-style ~1e6 values and ugly on the
+  axis). Axes are forced to equal aspect (`scaleanchor="x", scaleratio=1`) so the shape isn't
+  distorted.
+- The lap path is drawn as a heat-map ribbon colored by `speed_kmh` (slow = corner, fast = straight).
+- Detected corner **apex markers** (`T1..Tn`) and a **start/finish** marker are overlaid on the map.
+- **No GeoJSON is used** — the shape comes from the driven path (`x,y`, shared-memory world coords
+  or synthetic generator output), so the exact same code renders synthetic and real recorded laps.
+  This upholds architect.md rule 1 (no per-track geometry at analysis time).
+
+## Reaching Real F1 ("F1-Grade")
+
+The ambition is to run PitMind's analysis core on **real Formula 1 telemetry** — same
+`corners → mistakes → timeloss → coaching` engine, no analysis-code changes. The data comes from
+**FastF1** (the public F1 timing/telemetry source; the same data teams/pundits analyse).
+
+Key design decisions:
+
+- **Bridge, don't fork.** `f1/fastf1_bridge.py` converts FastF1 telemetry into the existing CSV
+  contract, so the pipeline is exercised exactly as it is on ACC/synthetic data (a new test
+  surface, not a new model).
+- **Unit conversions are the bridge's job.** F1 ships `Throttle` as 0–100 % (→ ÷100), `Brake` as a
+  bool (→ 0/1), and `X/Y/Z` in 1/10 m (→ ÷10). PitMind's columns stay unchanged.
+- **`track_position` is synthesized** as normalized cumulative arc length of the x/y path — F1
+  never broadcasts it, and corner detection interpolates its own arc grid so ~4 Hz sampling is
+  fine (Monza still resolves to ~7 corners).
+- **Capability flags for missing channels.** F1 broadcasts **no steering** and bool-only brake, so
+  `mistakes.py` prunes `EXCESSIVE_STEERING`/steering-based classes on F1 inputs. Brake-point,
+  apex-speed, throttle-on and exit-speed mistakes remain fully functional.
+- **Validation before trust.** Real ACC laps are validated/tuned first (`tools/tune.py --write`,
+  todo §5) before threshold defaults are trusted on F1 — the same "tune on real laps" discipline
+  from skills.md.
+- **Licensing.** FastF1/OpenF1 data is educational/non-commercial (CC BY-NC-SA). "F1 official"
+  here = professional-grade analysis of public data; an FOM-commercial license is a separate
+  business thread.
+
+Ambitions later: multi-driver teammates delta ("VER −0.22 s to LEC in T7, 14 m early braking"),
+a `🏎️ F1` dashboard tab reusing the track map, and a live race-engineer view from FastF1
+livetiming / OpenF1 (~3 s delay).
 
 ## Success Criteria (doc §35)
 

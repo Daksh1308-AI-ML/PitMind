@@ -1,14 +1,15 @@
 """Synthetic ACC-style telemetry generator.
 
 Emits CSVs matching the "contract" schema (see design.md and config.py). Laps are
-driven by a kinematic car model around a generic F1-style circuit. Individual
-laps/corners can be degraded with *known, labeled* mistakes (early/late braking,
-low apex speed, late throttle, slow exit) so the analysis pipeline and tests have
-ground truth.
+driven by a kinematic car model around a real F1 circuit (default Monza) or
+a generic fallback. Individual laps/corners can be degraded with *known, labeled*
+mistakes (early/late braking, low apex speed, late throttle, slow exit) so the
+analysis pipeline and tests have ground truth.
 
 Usage:
-    uv run python synthetic/generator.py            # default 12-lap session
-    uv run python synthetic/generator.py --laps 5    # fewer laps
+    uv run python synthetic/generator.py            # default 12-lap session (Monza)
+    uv run python synthetic/generator.py --laps 5 --track monza
+    uv run python synthetic/generator.py --track generic  # legacy fallback
 """
 
 from __future__ import annotations
@@ -35,8 +36,8 @@ A_ACCEL = 8.0    # m/s^2 full-throttle accel
 A_BRAKE = 12.0   # m/s^2 braking decel
 A_LAT = 14.0     # m/s^2 lateral acceleration cap -> corner speed limit
 
-# (angle_deg, radius_m); angles sum to exactly 360 -> closed loop
-CORNERS = [
+# Legacy generic track (open-loop seam fixed: angles sum to 360, closed loop)
+CORNERS_GENERIC = [
     (90.0, 55.0),   # hairpin 1
     (30.0, 180.0),  # fast sweeper
     (55.0, 110.0),  # medium right
@@ -44,17 +45,16 @@ CORNERS = [
     (110.0, 45.0),  # hairpin 2
     (15.0, 200.0),  # quick kink
 ]
-STRAIGHTS = [2600.0, 800.0, 1500.0, 350.0, 1200.0, 600.0]
+STRAIGHTS_GENERIC = [2600.0, 800.0, 1500.0, 350.0, 1200.0, 600.0]
 
-GEAR_BANDS = [0.0, 65.0, 115.0, 165.0, 215.0, 265.0, V_MAX_KMH + 1.0]  # km/h
+GEAR_BANDS = [0.0, 65.0, 115.0, 165.0, 215.0, 265.0, V_MAX_KMH + 1.0]
 RPM_IDLE, RPM_PEAK = 6500.0, 9500.0
 
 RNG = np.random.default_rng(42)
 
 
 # --------------------------------------------------------------------------- #
-# Track
-
+# Track types
 
 @dataclass
 class Corner:
@@ -64,40 +64,51 @@ class Corner:
     radius: float
     angle_rad: float
     dir_: int
-    limit_speed: float  # m/s cornering speed cap
+    limit_speed: float
+    name: str = ""
+
+    def __post_init__(self):
+        if not self.name:
+            self.name = f"T{self.index + 1}"
 
     @property
     def length(self) -> float:
         return self.end_s - self.start_s
 
-    @property
-    def name(self) -> str:
-        return f"T{self.index + 1}"
+
+@dataclass
+class TrackData:
+    corners: list[Corner]
+    length_m: float
+    centerline_x: np.ndarray
+    centerline_y: np.ndarray
+    curvature: np.ndarray  # signed curvature per 1m grid point
+    circuit_id: str
+    circuit_name: str
 
 
-def build_track(corners=(CORNERS), straights=(STRAIGHTS)):
-    """Return (corners, L, centerline_x, centerline_y).
+# Import circuit module at top level
+import sys
+sys.path.insert(0, str(Path(__file__).parent))
+import circuit as circuit_mod
 
-    Track is a closed loop: straights and corners alternate, starting with the
-    start/finish straight. All corners are right-handers (dir = -1) -> net heading
-    change is -2*pi. The centerline is interpolable by arc length s in [0, L).
-    """
-    assert len(corners) == len(straights)
 
-    n = len(corners)
+def build_track_generic() -> TrackData:
+    """Build the legacy generic track (closed loop, all right-handers)."""
+    n = len(CORNERS_GENERIC)
     s, heading = 0.0, 0.0
     xs, ys = [0.0], [0.0]
     vertices_s: list[float] = [0.0]
     corner_list: list[Corner] = []
 
     for i in range(n):
-        length = straights[i]
+        length = STRAIGHTS_GENERIC[i]
         s += length
         xs.append(xs[-1] + length * math.cos(heading))
         ys.append(ys[-1] + length * math.sin(heading))
         vertices_s.append(s)
 
-        angle_deg, radius = corners[i]
+        angle_deg, radius = CORNERS_GENERIC[i]
         angle = math.radians(angle_deg)
         dir_ = -1  # right-handed
         a = angle * dir_
@@ -108,27 +119,80 @@ def build_track(corners=(CORNERS), straights=(STRAIGHTS)):
         s += radius * abs(a)
         vertices_s.append(s)
         heading = h1
-        corner_list.append(
-            Corner(
-                index=len(corner_list),
-                start_s=start_s,
-                end_s=s,
-                radius=radius,
-                angle_rad=a,
-                dir_=dir_,
-                limit_speed=math.sqrt(A_LAT * radius),
-            )
-        )
+        corner_list.append(Corner(
+            index=len(corner_list),
+            start_s=start_s,
+            end_s=s,
+            radius=radius,
+            angle_rad=a,
+            dir_=dir_,
+            limit_speed=math.sqrt(A_LAT * radius),
+        ))
 
     # dense centerline sampled at 1m
     ds = 1.0
-    s_grid = np.arange(0.0, L := float(s), ds)
-    xs = np.array(xs)
-    ys = np.array(ys)
+    s_grid = np.arange(0.0, float(s), ds)
+    xs_arr = np.array(xs)
+    ys_arr = np.array(ys)
     vert = np.array(vertices_s)
-    cx = np.interp(s_grid, vert, xs)
-    cy = np.interp(s_grid, vert, ys)
-    return corner_list, L, cx, cy
+    cx = np.interp(s_grid, vert, xs_arr)
+    cy = np.interp(s_grid, vert, ys_arr)
+
+    # curvature at 1m grid
+    curvature = np.array([curvature_at(ss, corner_list) for ss in s_grid])
+
+    return TrackData(
+        corners=corner_list,
+        length_m=float(s),
+        centerline_x=cx,
+        centerline_y=cy,
+        curvature=curvature,
+        circuit_id="generic",
+        circuit_name="Generic F1",
+    )
+
+
+def build_track_real(circuit_id: str) -> TrackData:
+    """Build track from real circuit geometry via circuit.py module."""
+    track = circuit_mod.load_circuit(circuit_id)
+
+    # Convert circuit.py Corner to generator Corner (re-index sequentially)
+    corners: list[Corner] = []
+    for new_idx, c in enumerate(track.corners):
+        # Compute signed angle and direction
+        angle_rad = math.radians(c.angle_deg)
+        dir_ = 1 if angle_rad >= 0 else -1
+        corners.append(Corner(
+            index=new_idx,
+            start_s=c.start_tp * track.length_m,
+            end_s=c.end_tp * track.length_m,
+            radius=c.radius_m,
+            angle_rad=angle_rad,
+            dir_=dir_,
+            limit_speed=math.sqrt(A_LAT * c.radius_m),
+            name=c.name,
+        ))
+
+    # Curvature at 1m grid (resample from GRID_N grid)
+    s_grid = np.arange(0.0, track.length_m, 1.0)
+    curvature_1m = np.interp(s_grid, track.tp_grid * track.length_m, track.curvature)
+
+    return TrackData(
+        corners=corners,
+        length_m=track.length_m,
+        centerline_x=track.centerline_xy[:, 0],
+        centerline_y=track.centerline_xy[:, 1],
+        curvature=curvature_1m,
+        circuit_id=track.circuit_id,
+        circuit_name=track.name,
+    )
+
+
+def build_track(track_kind: str = "monza") -> TrackData:
+    """Return track data for given track kind (circuit_id or 'generic')."""
+    if track_kind == "generic":
+        return build_track_generic()
+    return build_track_real(track_kind)
 
 
 def curvature_at(s: float, corners: list[Corner], blend: float = 25.0) -> float:
@@ -167,8 +231,9 @@ class LapParams:
     v_max_kmh: float = V_MAX_KMH
 
 
-def _lead_distance(corners, L, i) -> float:
-    d = corners[(i + 1) % len(corners)].start_s - corners[i].end_s
+def _lead_distance(corners: list[Corner], L: float, i: int) -> float:
+    n = len(corners)
+    d = corners[(i + 1) % n].start_s - corners[i].end_s
     return d if d >= 0 else d + L
 
 
@@ -256,7 +321,7 @@ def build_speed_profile(plan: dict) -> tuple[np.ndarray, np.ndarray]:
     # drop points sitting on the wrap boundaries, then add clean periodic ends
     mask = (s_arr > 1e-6) & (s_arr < L - 1e-6)
     s_arr, v_arr = s_arr[mask], v_arr[mask]
-    v0 = float(v_arr[s_arr.argmin()])  # approx main-straight plateau at lap start
+    v0 = float(v_arr[s_arr.argmin()]) if len(v_arr) > 0 else V_MAX_KMH / 3.6
     s_arr = np.concatenate([[0.0], s_arr, [L]])
     v_arr = np.concatenate([[v0], v_arr, [v0]])
     return s_arr, v_arr
@@ -271,7 +336,7 @@ def _thr_offset(i: int, plan: dict) -> float:
 # Sampling
 
 
-def sample_lap(plan, params, lap_index, lap_start_time, cx, cy, L) -> pd.DataFrame:
+def sample_lap(plan, params, lap_index, lap_start_time, cx, cy, L, curv_1m) -> pd.DataFrame:
     s_arr, v_arr = build_speed_profile(plan)
     corners = plan["corners"]
     n = len(corners)
@@ -291,7 +356,7 @@ def sample_lap(plan, params, lap_index, lap_start_time, cx, cy, L) -> pd.DataFra
         braking = bool(active)
 
         # throttle
-        throttle = 1.0 if s >= L * 0.5 else 1.0  # placeholder overridden below
+        throttle = 1.0
         if braking:
             throttle = 0.0
         elif in_corner:
@@ -318,8 +383,10 @@ def sample_lap(plan, params, lap_index, lap_start_time, cx, cy, L) -> pd.DataFra
         else:
             lo, hi = GEAR_BANDS[gear - 1], GEAR_BANDS[gear]
             rpm = RPM_IDLE + (RPM_PEAK - RPM_IDLE) * float(np.clip((speed_kmh - lo) / (hi - lo), 0.0, 1.0))
-        x = float(np.interp(s, np.arange(0.0, L, 1.0)[: len(cx)], cx))
-        y = float(np.interp(s, np.arange(0.0, L, 1.0)[: len(cy)], cy))
+
+        # interpolate x, y from 1m grid centerline
+        x = float(np.interp(s, np.arange(len(cx)), cx))
+        y = float(np.interp(s, np.arange(len(cy)), cy))
         sector = int(s / L * 3) + 1 if s / L * 3 < 3 else 3
         rows.append({
             "timestamp": round(t, 4),
@@ -348,12 +415,6 @@ def _corner_at(corners, s):
     return None
 
 
-def _thr_offset_for(s, c, plan):
-    if c is None:
-        return 0.0
-    return plan["_thr_delay"].get(c.index, 0.0) * plan["apex"][c.index]
-
-
 def _throttle_in_corner(s, c, plan):
     if c is None:
         return 0.55
@@ -369,11 +430,10 @@ def _throttle_in_corner(s, c, plan):
 # Session
 
 
-def random_lap_params(rng: np.random.Generator, clean: bool) -> LapParams:
+def random_lap_params(rng: np.random.Generator, clean: bool, n_corners: int) -> LapParams:
     p = LapParams()
     if clean:
         return p
-    n_corners = len(CORNERS)
     for i in range(n_corners):
         r = rng.random()
         if r < 0.25:
@@ -389,13 +449,17 @@ def random_lap_params(rng: np.random.Generator, clean: bool) -> LapParams:
     return p
 
 
-def generate_session(laps: int, rng: np.random.Generator = RNG) -> tuple[pd.DataFrame, dict]:
-    corners, L, cx, cy = build_track()
-    cx, cy = np.asarray(cx, dtype=float), np.asarray(cy, dtype=float)
+def generate_session(laps: int, track_kind: str = "monza", rng: np.random.Generator = RNG) -> tuple[pd.DataFrame, dict]:
+    track_data = build_track(track_kind)
+    corners = track_data.corners
+    L = track_data.length_m
+    cx = track_data.centerline_x
+    cy = track_data.centerline_y
+    curv_1m = track_data.curvature
 
     frames = []
     ground_truth = {
-        "track": {"kind": "generic_f1", "length_m": round(float(L), 1), "corners": len(corners)},
+        "track": {"kind": track_kind, "length_m": round(float(L), 1), "corners": len(corners)},
         "laps": [],
     }
     clean_laps = set()
@@ -404,12 +468,12 @@ def generate_session(laps: int, rng: np.random.Generator = RNG) -> tuple[pd.Data
         clean = lap == 1 or lap == 2
         if clean:
             clean_laps.add(lap)
-        params = random_lap_params(rng, clean)
+        params = random_lap_params(rng, clean, len(corners))
         plan = plan_lap(corners, L, params)
         # stash throttle delay for the sampling helpers
         plan["_thr_delay"] = params.throttle_delay_s
         lap_start = sum(len(f) for f in frames) / SAMPLE_RATE
-        df = sample_lap(plan, params, lap, lap_start, cx, cy, L)
+        df = sample_lap(plan, params, lap, lap_start, cx, cy, L, curv_1m)
         frames.append(df)
         gt_corners = []
         for c in corners:
@@ -432,9 +496,10 @@ def generate_session(laps: int, rng: np.random.Generator = RNG) -> tuple[pd.Data
 def main() -> None:
     ap = argparse.ArgumentParser(description="Generate synthetic ACC telemetry")
     ap.add_argument("--laps", type=int, default=12)
+    ap.add_argument("--track", type=str, default="monza", help="Circuit ID (monza, spa, silverstone, imola, generic)")
     args = ap.parse_args()
 
-    session, gt = generate_session(args.laps)
+    session, gt = generate_session(args.laps, args.track)
     DATA_DIR.mkdir(exist_ok=True)
     session.to_csv(OUT_CSV, index=False)
     OUT_JSON.write_text(json.dumps(gt, indent=2), encoding="utf-8")
@@ -444,7 +509,7 @@ def main() -> None:
     print(session[cols].head(12).to_string(index=False))
     print(f"\nwrote {OUT_CSV} ({len(session)} rows, {session['lap_number'].nunique()} laps)")
     print(f"wrote {OUT_JSON}")
-    print(f"track length ~{gt['track']['length_m']:.0f} m, {gt['track']['corners']} corners")
+    print(f"track: {gt['track']['kind']} length ~{gt['track']['length_m']:.0f} m, {gt['track']['corners']} corners")
 
 
 if __name__ == "__main__":

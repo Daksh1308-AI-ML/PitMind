@@ -61,4 +61,5 @@ class TestSegmentation:
 
     def test_duration_plausible(self, session):
         table = segmentation.valid_lap_table(session)
-        assert table["duration_s"].between(90, 140).all()
+        # Monza laps are ~88-89s; allow 70-120s for different tracks
+        assert table["duration_s"].between(70, 120).all()

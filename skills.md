@@ -27,6 +27,11 @@ Data/ML work uses plain numpy/pandas — no heavy skill required.
 5. `config.yaml` holds all thresholds — no magic numbers in code (design.md).
 6. Synthetic dev/test data drives **real circuit geometry** (`data/circuits/`, bacinger/f1-circuits);
    circuit name is a generator input, never hardcoded into analysis.
+7. **Real F1 data goes through the bridge, never a fork.** FastF1/OpenF1 telemetry is converted to
+   the CSV contract in `f1/`; the pipeline is unchanged. F1 has no `steering` and bool-only
+   `Brake`, so mistakes uses a **capability flag** to prune steering-based classes on F1 inputs.
+8. **Licensing is explicit.** FastF1/OpenF1 are educational/non-commercial (CC BY-NC-SA); keep that
+   documented. "F1 official" = pro-grade analysis of public data, not an FOM-commercial license.
 
 ## Workflow
 
@@ -46,7 +51,9 @@ uv run python -m pytest                         # unit tests against synthetic d
 uv run python synthetic/generator.py --track monza --laps 12  # regenerate dev laps
 uv run python synthetic/circuit.py --info       # inspect a vendored circuit (derived corners)
 uv run python recorder/record_acc.py --help     # ACC recorder usage
-uv run streamlit run dashboard/app.py           # dashboard (local dev)
+uv run python tools/tune.py data/<session>.csv  # validation report + threshold suggestions
+uv run python f1/cli.py --year 2024 --event Monaco --session Q --driver VER  # real F1 -> pipeline
+uv run streamlit run dashboard/app.py           # dashboard (local dev, incl. 🗺️ Track Map)
 ```
 
 ## Guarding Against the Failure Mode
