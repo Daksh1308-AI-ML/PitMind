@@ -1432,3 +1432,22 @@ Best:
 > **"Carry 9 km/h more speed into Turn 3."**
 
 That difference is what turns a **telemetry analyzer** into an **AI Driver Coach**.
+
+---
+
+# Development Notes (addendum — does not change the roadmap above)
+
+## Synthetic test data uses real F1 circuit geometry
+
+- Dev/test telemetry is no longer generated on a made-up track. `synthetic/generator.py` now drives
+  **real circuit centerlines** vendored from [bacinger/f1-circuits](https://github.com/bacinger/f1-circuits)
+  (MIT; OSM-derived, attribution in `data/circuits/README.md`). Default: **Monza**; also Spa,
+  Silverstone (+ optional Imola).
+- Circuit GeoJSON (lat/lon) is projected to meters, resampled to a ~1 m arc grid, and its corner
+  regions are auto-derived with the same chord-curvature logic the analysis pipeline uses on
+  telemetry. The discrete-corner kinematic model still brakes/apexes/exits per corner and still
+  injects known, labeled mistakes for pytest.
+- **Analysis remains track-agnostic** (architect.md rule 1): circuit files are a *fixture* for
+  generating test telemetry only; runtime corner detection never reads them. This keeps the roadmap
+  goal "any F1 circuit, no config" intact while making dev/test data realistic and validation
+  comparable to real ACC recordings (Monza, Spa, Silverstone, Imola are all in ACC).

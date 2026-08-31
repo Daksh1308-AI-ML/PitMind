@@ -19,18 +19,22 @@ Data/ML work uses plain numpy/pandas — no heavy skill required.
 
 ## Non-Negotiables (from architect.md / design.md)
 
-1. **No per-track geometry.** Corner detection must be derived from telemetry alone.
+1. **No per-track geometry at analysis time.** Corner detection is derived from telemetry alone;
+   circuit GeoJSON is a synthetic test fixture only.
 2. **LLM is never in the decision path** — rules/ML decide, templates/LLM phrase.
 3. **Same CSV schema from recorder and synthetic generator** (the contract).
 4. **Track-agnostic everywhere**; all F1 circuits supported without config.
 5. `config.yaml` holds all thresholds — no magic numbers in code (design.md).
+6. Synthetic dev/test data drives **real circuit geometry** (`data/circuits/`, bacinger/f1-circuits);
+   circuit name is a generator input, never hardcoded into analysis.
 
 ## Workflow
 
 1. Read `todo.md`, then `architect.md` → `design.md` before touching code.
 2. Implement with the best model available; use sub-agents for parallel feature work.
-3. Every feature gets a pytest in `tests/` that runs against synthetic data.
-4. After any change: run `pytest` and, for dashboard code, `streamlit run dashboard/app.py --server.headless true`.
+3. Every feature gets a pytest in `tests/` that runs against synthetic data on real circuits.
+4. After any change: run `uv run python -m pytest` and, for dashboard code,
+   `uv run streamlit run dashboard/app.py --server.headless true`.
 5. Never `drizzle push`-style unsafe DB ops — we have no DB; if one is added, follow
    generate/migrate discipline.
 6. Update `todo.md` when milestones move. Keep `architect.md` current if modules change.
@@ -38,10 +42,11 @@ Data/ML work uses plain numpy/pandas — no heavy skill required.
 ## Verification Commands
 
 ```text
-python -m pytest                      # unit tests against synthetic data
-python synthetic/generate_synthetic.py # regenerate dev laps
-python recorder/record_acc.py --help  # ACC recorder usage
-streamlit run dashboard/app.py        # dashboard (local dev)
+uv run python -m pytest                         # unit tests against synthetic data
+uv run python synthetic/generator.py --track monza --laps 12  # regenerate dev laps
+uv run python synthetic/circuit.py --info       # inspect a vendored circuit (derived corners)
+uv run python recorder/record_acc.py --help     # ACC recorder usage
+uv run streamlit run dashboard/app.py           # dashboard (local dev)
 ```
 
 ## Guarding Against the Failure Mode

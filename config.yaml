@@ -2,6 +2,9 @@ detection:
   min_brake_pressure: 0.2
   throttle_resume: 0.3
   sample_rate_hz: 60
+  corner_curv_threshold: 0.0008
+  corner_merge_m: 40.0
+  max_brake_lookback_m: 800.0
 
 ranges:
   brake_point_delta_m:

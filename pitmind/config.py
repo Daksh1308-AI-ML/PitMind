@@ -34,6 +34,9 @@ class DetectionConfig:
     min_brake_pressure: float = 0.2
     throttle_resume: float = 0.3
     sample_rate_hz: int = 60
+    corner_curv_threshold: float = 0.0008
+    corner_merge_m: float = 40.0
+    max_brake_lookback_m: float = 800.0
 
 
 @dataclass

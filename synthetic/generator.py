@@ -332,9 +332,9 @@ def sample_lap(plan, params, lap_index, lap_start_time, cx, cy, L) -> pd.DataFra
             "steering": round(steering, 4),
             "gear": gear,
             "rpm": round(rpm, 1),
-            "x": round(x + RNG.normal(0, 0.3), 2),
-            "y": round(y + RNG.normal(0, 0.3), 2),
-            "z": round(RNG.normal(0, 0.05), 3),
+            "x": round(x + RNG.normal(0, 0.08), 2),
+            "y": round(y + RNG.normal(0, 0.08), 2),
+            "z": round(RNG.normal(0, 0.02), 3),
         })
         s += v * DT
         t += DT
