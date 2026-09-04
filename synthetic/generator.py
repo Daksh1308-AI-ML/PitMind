@@ -335,7 +335,7 @@ def _thr_offset(i: int, plan: dict) -> float:
 # Sampling
 
 
-def sample_lap(plan, params, lap_index, lap_start_time, cx, cy, L, curv_1m) -> pd.DataFrame:
+def sample_lap(plan, params, lap_index, lap_start_time, cx, cy, L, curv_1m, rng: np.random.Generator = RNG) -> pd.DataFrame:
     s_arr, v_arr = build_speed_profile(plan)
     corners = plan["corners"]
     n = len(corners)
@@ -397,9 +397,9 @@ def sample_lap(plan, params, lap_index, lap_start_time, cx, cy, L, curv_1m) -> p
             "steering": round(steering, 4),
             "gear": gear,
             "rpm": round(rpm, 1),
-            "x": round(x + RNG.normal(0, 0.08), 2),
-            "y": round(y + RNG.normal(0, 0.08), 2),
-            "z": round(RNG.normal(0, 0.02), 3),
+            "x": round(x + rng.normal(0, 0.08), 2),
+            "y": round(y + rng.normal(0, 0.08), 2),
+            "z": round(rng.normal(0, 0.02), 3),
         })
         s += v * DT
         t += DT
@@ -471,7 +471,7 @@ def generate_session(laps: int, track_kind: str = "monza", rng: np.random.Genera
         # stash throttle delay for the sampling helpers
         plan["_thr_delay"] = params.throttle_delay_s
         lap_start = sum(len(f) for f in frames) / SAMPLE_RATE
-        df = sample_lap(plan, params, lap, lap_start, cx, cy, L, curv_1m)
+        df = sample_lap(plan, params, lap, lap_start, cx, cy, L, curv_1m, rng)
         frames.append(df)
         gt_corners = []
         for c in corners:

@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import math
 
+import numpy as np
 import pytest
 
 from pitmind import corners, events, features, mistakes, potential_lap, segmentation, timeloss
@@ -19,7 +20,7 @@ A_LAT = gen.A_LAT
 
 @pytest.fixture(scope="module")
 def data():
-    session, gt = gen.generate_session(laps=6)
+    session, gt = gen.generate_session(laps=6, rng=np.random.default_rng(42))
     return session, gt
 
 
