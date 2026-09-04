@@ -48,8 +48,8 @@ def fetch_session(
 
 def run_pipeline(session_df: pd.DataFrame) -> None:
     """Run the PitMind analysis pipeline over a bridged session (print report)."""
+    from pitmind import coaching, features, mistakes, timeloss
     from pitmind.config import Config
-    from pitmind import features, mistakes, timeloss, coaching
 
     cfg = Config.from_file()
     try:
@@ -93,6 +93,11 @@ def main(argv=None) -> int:
         help="Another driver code to compare against (repeatable). Requires --compare.",
     )
     parser.add_argument(
+        "--summary", action="store_true",
+        help="Print a race-engineer callout for the analysed session (local Ollama "
+             "qwen2.5:7b; template fallback — todo.md M5)",
+    )
+    parser.add_argument(
         "-o", "--out", default=None,
         help="Write the bridged session to this CSV path (13-column contract)",
     )
@@ -118,6 +123,17 @@ def main(argv=None) -> int:
     if args.analyze:
         run_pipeline(session)
 
+    if args.summary:
+        from pitmind import summarize
+        from pitmind.config import Config as _Config
+        from tools import tune as _tune
+        _cfg = _Config.from_file()
+        _bundle = _tune.run_pipeline(session, _cfg, capabilities={"steering": False})
+        print("\n=== Race engineer ===")
+        print(summarize.engineer_callout(
+            _bundle, _cfg, driver=args.driver, capabilities={"steering": False},
+            force=True))
+
     if args.compare:
         if not args.other_driver:
             print("--compare requires at least one --other-driver CODE")
@@ -129,8 +145,8 @@ def main(argv=None) -> int:
 
 def _run_comparison(args, bridge) -> None:
     """Fetch + bridge the other drivers and print the M3 comparison report."""
-    from pitmind.config import Config
     from f1 import comparison
+    from pitmind.config import Config
 
     sessions: dict[str, pd.DataFrame] = {}
     for code in [args.driver, *args.other_driver]:

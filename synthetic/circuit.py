@@ -158,10 +158,6 @@ def _detect_corner_regions(
         # Net heading change from start to end of corner region
         # heading at si is backward chord direction, at ei-1 is forward chord direction
         # For net turn, use forward heading at end minus backward heading at start
-        h_start = math.atan2(
-            np.sin(math.atan2(
-                np.sin(turn_angle[si]) if False else 0, 0)) if False else 0, 0
-        )
         # Simpler: net turn = angle between chord at ei-1 (forward) and chord at si (backward)
         # Actually: heading at si = backward chord direction at si
         # heading at ei-1 = forward chord direction at ei-1

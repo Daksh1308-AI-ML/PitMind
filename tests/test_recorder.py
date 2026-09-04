@@ -6,12 +6,9 @@ the 13-column CSV contract and per-lap splitting are verified on CI.
 
 from __future__ import annotations
 
-import os
-
 import pandas as pd
-import pytest
 
-from recorder.record_acc import ACCRecorder, RECORDER_COLUMNS, _bounded
+from recorder.record_acc import RECORDER_COLUMNS, ACCRecorder, _bounded
 
 
 # ---------------------------------------------------------------- fakes ----

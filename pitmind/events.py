@@ -99,7 +99,6 @@ def extract_corner(lap: pd.DataFrame, corner, L: float, cfg: Config) -> CornerEv
                 throttle_on_s = float(t[j] - t[apex_i])
                 break
 
-    entry_s = st * L
     corner_time_s = float(t[last] - t[first])
     return CornerEvent(
         lap=lap_no, corner=corner.index, name=corner.name, start_tp=st, end_tp=en, apex_tp=corner.apex_tp,

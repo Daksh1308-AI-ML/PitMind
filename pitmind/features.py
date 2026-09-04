@@ -9,8 +9,8 @@ from __future__ import annotations
 
 import pandas as pd
 
-from pitmind.config import Config
 from pitmind import corners, events, reference, segmentation
+from pitmind.config import Config
 
 
 def build_feature_table(

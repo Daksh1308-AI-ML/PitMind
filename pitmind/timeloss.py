@@ -7,12 +7,11 @@ each mistake costs. Based on doc v0.3-0.4 time-loss methodology.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Literal
 
 import pandas as pd
 
-from pitmind.config import Config
 from pitmind import mistakes
+from pitmind.config import Config
 
 
 @dataclass(frozen=True)
@@ -30,13 +29,12 @@ class TimeLoss:
 
 def _kinematic_brake_loss(delta_m: float, entry_speed_ms: float, cfg: Config) -> float:
     """Time loss from braking early/late.
-    
+
     Early braking: lost time = distance / avg_speed during over-braking
     Late braking: lost time from overshoot + correction (more complex)
-    
+
     Simplified: time = delta_distance / (entry_speed * 0.5) for early brake
     """
-    A_BRAKE = 12.0  # m/s^2
     if delta_m < 0:  # early brake
         # Time to cover extra distance at reduced speed
         avg_speed = entry_speed_ms * 0.6  # rough avg during brake zone
@@ -49,20 +47,20 @@ def _kinematic_brake_loss(delta_m: float, entry_speed_ms: float, cfg: Config) ->
 
 def _kinematic_apex_loss(delta_kmh: float, ref_speed_kmh: float, radius_m: float, cfg: Config) -> float:
     """Time loss from low apex speed.
-    
+
     delta_kmh = actual - reference (negative = slower)
     Time loss ≈ corner_arc_length * (1/v_actual - 1/v_ref)
     """
     v_ref_kmh = ref_speed_kmh
     v_act_kmh = v_ref_kmh + delta_kmh  # actual = ref + delta (delta is negative)
-    
+
     # Approximate corner arc length from radius and typical angle
     # Using 90 degrees = pi/2 rad as typical
     arc_len = radius_m * 1.57
-    
+
     v_ref = v_ref_kmh / 3.6
     v_act = v_act_kmh / 3.6
-    
+
     if v_act <= 0:
         return 1.0  # fallback
     return arc_len * (1.0 / v_act - 1.0 / v_ref)
@@ -70,7 +68,7 @@ def _kinematic_apex_loss(delta_kmh: float, ref_speed_kmh: float, radius_m: float
 
 def _kinematic_throttle_loss(delta_s: float, exit_speed_ms: float, cfg: Config) -> float:
     """Time loss from late throttle application.
-    
+
     Simple: delta_s seconds of delayed acceleration
     Distance lost ≈ 0.5 * a * t^2, but we just use time directly
     """
@@ -79,16 +77,16 @@ def _kinematic_throttle_loss(delta_s: float, exit_speed_ms: float, cfg: Config) 
 
 def _kinematic_exit_loss(delta_kmh: float, ref_speed_kmh: float, straight_len_m: float, cfg: Config) -> float:
     """Time loss from slow exit speed on following straight.
-    
+
     delta_kmh = actual - reference (negative = slower)
     Time lost on straight = straight_len * (1/v_act - 1/v_ref)
     """
     v_ref_kmh = ref_speed_kmh
     v_act_kmh = v_ref_kmh + delta_kmh
-    
+
     v_ref = v_ref_kmh / 3.6
     v_act = v_act_kmh / 3.6
-    
+
     if v_act <= 0 or straight_len_m <= 0:
         return 0.5  # fallback
     return straight_len_m * (1.0 / v_act - 1.0 / v_ref)
@@ -111,38 +109,36 @@ def estimate_time_loss(
     straight_lengths: dict[int, float] | None = None,
 ) -> list[TimeLoss]:
     """Estimate time loss for each detected mistake using kinematic model.
-    
+
     Args:
         mistake_list: Output from mistakes.detect_mistakes
         feature_table: Feature table with reference deltas and corner data
         cfg: Configuration
         straight_lengths: Optional dict mapping corner_index -> straight length after corner
                          If None, uses default 200m
-    
+
     Returns:
         List of TimeLoss objects
     """
     if straight_lengths is None:
         straight_lengths = {}
-    
+
     # Build lookup for corner data from feature table (reference lap)
-    ref_row = feature_table[feature_table["lap"] == feature_table["lap"].min()].iloc[0]
-    # Actually we need per-corner reference data
     ref_data = feature_table[feature_table["lap"] == 1].set_index("corner")
-    
+
     time_losses: list[TimeLoss] = []
-    
+
     for m in mistake_list:
         corner_idx = m.corner
-        
+
         # Get reference corner data
         ref = ref_data.loc[corner_idx] if corner_idx in ref_data.index else None
-        
+
         if m.mistake_type == mistakes.MistakeType.EARLY_BRAKE or m.mistake_type == mistakes.MistakeType.LATE_BRAKE:
             entry_speed = ref["entry_speed_kmh"] / 3.6 if ref is not None and pd.notna(ref["entry_speed_kmh"]) else 80/3.6
             loss = _kinematic_brake_loss(m.delta_value, entry_speed, cfg)
             method = "kinematic_brake"
-            
+
         elif m.mistake_type == mistakes.MistakeType.LOW_APEX_SPEED:
             ref_apex = ref["apex_speed_kmh"] if ref is not None and pd.notna(ref["apex_speed_kmh"]) else 100.0
             radius = ref["apex_speed_kmh"] if ref is not None else 100  # fallback
@@ -151,30 +147,30 @@ def estimate_time_loss(
             radius = (v_ref ** 2) / 14.0  # A_LAT = 14
             loss = _kinematic_apex_loss(m.delta_value, ref_apex, radius, cfg)
             method = "kinematic_apex"
-            
+
         elif m.mistake_type == mistakes.MistakeType.LATE_THROTTLE:
             exit_speed = ref["exit_speed_kmh"] / 3.6 if ref is not None and pd.notna(ref["exit_speed_kmh"]) else 100/3.6
             loss = _kinematic_throttle_loss(m.delta_value, exit_speed, cfg)
             method = "kinematic_throttle"
-            
+
         elif m.mistake_type == mistakes.MistakeType.SLOW_EXIT:
             ref_exit = ref["exit_speed_kmh"] if ref is not None and pd.notna(ref["exit_speed_kmh"]) else 100.0
             straight_len = straight_lengths.get(corner_idx, 200.0)
             loss = _kinematic_exit_loss(m.delta_value, ref_exit, straight_len, cfg)
             method = "kinematic_exit"
-            
+
         elif m.mistake_type == mistakes.MistakeType.EXCESS_STEERING:
             corner_time = ref["corner_time_s"] if ref is not None and pd.notna(ref["corner_time_s"]) else 3.0
             loss = _kinematic_steering_loss(m.delta_value, corner_time, cfg)
             method = "kinematic_steering"
-            
+
         else:
             loss = 0.0
             method = "unknown"
-        
+
         # Clamp to reasonable bounds
         loss = max(0.0, min(loss, 5.0))
-        
+
         time_losses.append(TimeLoss(
             lap=m.lap,
             corner=m.corner,
@@ -185,7 +181,7 @@ def estimate_time_loss(
             delta_value=m.delta_value,
             method=method,
         ))
-    
+
     return time_losses
 
 

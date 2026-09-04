@@ -18,8 +18,8 @@ from dataclasses import dataclass, field
 import numpy as np
 import pandas as pd
 
-from pitmind.config import Config
 from pitmind import features, mistakes, timeloss
+from pitmind.config import Config
 
 # F1 inputs have no steering channel -> prune steering-based mistakes.
 F1_CAPABILITIES = {"steering": False}
@@ -37,6 +37,17 @@ class CornerDelta:
     root_cause: str | None           # e.g. "braking 14.0m early in T7"
     root_loss_s: float               # time loss attributable to that root cause
     mistake_type: str | None
+
+
+@dataclass
+class SectorDelta:
+    """Per-driver, per-sector time-loss delta vs a reference driver."""
+    driver: str
+    sector: int                      # 1, 2 or 3
+    driver_sector_loss_s: float
+    ref_sector_loss_s: float
+    delta_s: float                   # + = slower in this sector
+    n_corners: int                   # corners that fall in the sector
 
 
 @dataclass
@@ -191,6 +202,109 @@ def compare_drivers(
         results.append(DriverComparison(driver=code, reference_driver=reference_driver,
                                         corner_deltas=deltas))
     return results
+
+
+def _corner_to_sector(corner_index: int, n_corners: int) -> int:
+    """Assign a corner to sector 1/2/3 by its position along the lapped order.
+
+    Corners are detected in lap order; sector boundaries split the lap into
+    thirds. Using the midpoint of each corner's index slot keeps the mapping
+    deterministic and identical across drivers on the same circuit.
+    """
+    if n_corners <= 0:
+        return 1
+    frac = (corner_index + 0.5) / n_corners
+    return int(min(3, int(frac * 3) + 1))
+
+
+def compare_sectors(
+    sessions: dict[str, pd.DataFrame],
+    cfg: Config,
+    reference_driver: str | None = None,
+) -> list[SectorDelta]:
+    """Roll corner-level losses up to a 3-sector comparison vs a reference driver.
+
+    Every driver's session is converted per-corner (reusing `driver_corner_table`),
+    each corner is assigned a sector by its order, and losses are summed per
+    sector. Returns one SectorDelta per (driver, sector) for the non-reference
+    drivers. Use this for the classic "VER is 0.4s down in sector 2" summary.
+    """
+    if len(sessions) < 2:
+        raise ValueError("compare_sectors needs at least two drivers")
+
+    per_driver = {
+        code: driver_corner_table(df, cfg)
+        for code, df in sessions.items()
+    }
+
+    # per-driver, per-sector summed loss + corner count
+    sector_totals: dict[str, dict[int, float]] = {}
+    sector_counts: dict[str, dict[int, int]] = {}
+    all_corners = {int(r["corner"]) for t in per_driver.values() for _, r in t.iterrows()}
+    n_corners = max(all_corners) + 1 if all_corners else 0
+
+    for code, tbl in per_driver.items():
+        st: dict[int, float] = {1: 0.0, 2: 0.0, 3: 0.0}
+        sc: dict[int, int] = {1: 0, 2: 0, 3: 0}
+        for _, r in tbl.iterrows():
+            sec = _corner_to_sector(int(r["corner"]), n_corners)
+            st[sec] += float(r["total_loss_s"])
+            sc[sec] += 1
+        sector_totals[code] = st
+        sector_counts[code] = sc
+
+    if reference_driver is None:
+        totals = {c: sum(sector_totals[c].values()) for c in per_driver}
+        reference_driver = min(totals, key=totals.get)
+
+    ref = sector_totals[reference_driver]
+
+    results: list[SectorDelta] = []
+    for code, st in sector_totals.items():
+        if code == reference_driver:
+            continue
+        for sec in (1, 2, 3):
+            results.append(SectorDelta(
+                driver=code,
+                sector=sec,
+                driver_sector_loss_s=round(st.get(sec, 0.0), 4),
+                ref_sector_loss_s=round(ref.get(sec, 0.0), 4),
+                delta_s=round(st.get(sec, 0.0) - ref.get(sec, 0.0), 4),
+                n_corners=sector_counts[code].get(sec, 0),
+            ))
+    return results
+
+
+def sector_comparison_to_dataframe(sector_deltas: list[SectorDelta]) -> pd.DataFrame:
+    """Flatten sector deltas into a table for the dashboard."""
+    return pd.DataFrame([
+        {
+            "driver": s.driver,
+            "sector": f"S{s.sector}",
+            "delta_s": s.delta_s,
+            "driver_loss_s": s.driver_sector_loss_s,
+            "ref_loss_s": s.ref_sector_loss_s,
+            "n_corners": s.n_corners,
+        }
+        for s in sector_deltas
+    ])
+
+
+def phrase_sector_delta(sector_deltas: list[SectorDelta], driver: str) -> str:
+    """Human summary of one driver's sector deltas vs their reference."""
+    mine = [s for s in sector_deltas if s.driver == driver]
+    if not mine:
+        return f"{driver}: no sector comparison"
+    worst = max(mine, key=lambda s: s.delta_s)
+    good = min(mine, key=lambda s: s.delta_s)
+    lines = [f"{driver} sector breakdown (vs {worst.ref_sector_loss_s:.2f}s total ref):"]
+    for s in sorted(mine, key=lambda x: x.sector):
+        sign = "loses" if s.delta_s >= 0 else "gains"
+        lines.append(f"  S{s.sector} {sign} {abs(s.delta_s):.2f}s ({s.n_corners} corners)")
+    lines.append(f"  focus: S{worst.sector} (+{worst.delta_s:.2f}s)")
+    if good.delta_s < 0:
+        lines.append(f"  strength: S{good.sector} ({good.delta_s:+.2f}s)")
+    return "\n".join(lines)
 
 
 def comparison_to_dataframe(comparisons: list[DriverComparison]) -> pd.DataFrame:

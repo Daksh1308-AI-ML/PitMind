@@ -50,25 +50,43 @@ class RangesConfig:
 
 
 @dataclass
+class LLMConfig:
+    provider: str = "off"                 # ollama | off
+    base_url: str = "http://localhost:11434"
+    model: str = "qwen2.5:7b"
+    enabled: bool = False
+    timeout_s: float = 120.0
+
+
+@dataclass
 class Config:
     detection: DetectionConfig = field(default_factory=DetectionConfig)
     ranges: RangesConfig = field(default_factory=RangesConfig)
     timeloss_mode: str = "kinematic"
     synthetic: dict = field(default_factory=dict)
     tuning: dict = field(default_factory=dict)
+    llm: LLMConfig = field(default_factory=LLMConfig)
 
     @classmethod
-    def from_file(cls, path: Path = DEFAULT_CONFIG_PATH) -> "Config":
+    def from_file(cls, path: Path = DEFAULT_CONFIG_PATH) -> Config:
         path = Path(path)
         if not path.exists():
             return cls()
         raw = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
         detection = raw.get("detection", {}) or {}
         ranges = raw.get("ranges", {}) or {}
+        llm_raw = raw.get("llm", {}) or {}
         return cls(
             detection=DetectionConfig(**detection),
             ranges=RangesConfig(**ranges),
             timeloss_mode=(raw.get("timeloss", {}) or {}).get("mode", "kinematic"),
             synthetic=raw.get("synthetic", {}) or {},
             tuning=raw.get("tuning", {}) or {},
+            llm=LLMConfig(
+                provider=llm_raw.get("provider", "off"),
+                base_url=llm_raw.get("base_url", "http://localhost:11434"),
+                model=llm_raw.get("model", "qwen2.5:7b"),
+                enabled=bool(llm_raw.get("enabled", False)),
+                timeout_s=float(llm_raw.get("timeout_s", 120.0)),
+            ),
         )

@@ -3,21 +3,21 @@
 Run: streamlit run dashboard/app.py
 """
 
-import streamlit as st
-import pandas as pd
-import plotly.graph_objects as go
-from plotly.subplots import make_subplots
-import numpy as np
-
 # PitMind modules
 import sys
 from pathlib import Path
+
+import pandas as pd
+import plotly.graph_objects as go
+import streamlit as st
+from plotly.subplots import make_subplots
+
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from pitmind.config import Config
-from pitmind import features, mistakes, timeloss, potential_lap, coaching, segmentation, corners
-from synthetic import generator as gen
 from dashboard import map_plot
+from pitmind import coaching, corners, features, mistakes, potential_lap, segmentation, timeloss
+from pitmind.config import Config
+from synthetic import generator as gen
 
 
 @st.cache_data
@@ -80,7 +80,37 @@ def process_f1_comparison(_fields: dict[str, pd.DataFrame], cfg: Config) -> dict
     comparisons = comparison.compare_drivers(_fields, cfg)
     comp_df = comparison.comparison_to_dataframe(comparisons)
     phrases = {c.driver: comparison.phrase_delta(c) for c in comparisons}
-    return {"comparisons": comparisons, "table": comp_df, "phrases": phrases}
+    sector_deltas = comparison.compare_sectors(_fields, cfg)
+    sector_df = comparison.sector_comparison_to_dataframe(sector_deltas)
+    sector_phrases = {
+        d: comparison.phrase_sector_delta(sector_deltas, d)
+        for d in {s.driver for s in sector_deltas}
+    }
+    return {
+        "comparisons": comparisons,
+        "table": comp_df,
+        "phrases": phrases,
+        "sector_deltas": sector_deltas,
+        "sector_table": sector_df,
+        "sector_phrases": sector_phrases,
+    }
+
+
+def _comp_bar_figure(piv: pd.DataFrame, ref_total: float) -> go.Figure:
+    """Horizontal bar chart of sector delta_s per driver (green=gain, red=loss)."""
+    drivers = list(piv.columns)
+    sectors = list(piv.index)
+    fig = go.Figure()
+    for sec in sectors:
+        vals = [float(piv.loc[sec, d]) for d in drivers]
+        fig.add_trace(go.Bar(name=str(sec), x=vals, y=drivers, orientation="h"))
+    fig.update_layout(
+        barmode="group",
+        title=f"Sector delta vs reference (ref total loss {ref_total:.2f}s)",
+        xaxis_title="delta_s (+ slower, - faster)",
+        height=max(260, 80 * len(drivers)),
+    )
+    return fig
 
 
 @st.cache_data
@@ -91,7 +121,8 @@ def load_f1_overlay_metric(_driver_df: pd.DataFrame, lap_no: int,
     Uses the whole driver session (all laps) so delta-based time loss is
     non-zero, then filters to the selected lap's corner rows.
     """
-    from pitmind import features, mistakes, timeloss, preprocess, segmentation, corners as _corners
+    from pitmind import corners as _corners
+    from pitmind import features, mistakes, preprocess, timeloss
     clean = preprocess.preprocess(_driver_df, _cfg)
     laps = segmentation.valid_laps(clean)
     first_lap_no = int(laps[0]["lap_number"].iloc[0])
@@ -133,17 +164,17 @@ with col1:
 with col2:
     st.metric("Valid Laps", session["lap_number"].nunique())
 with col3:
-    st.metric("Potential Lap", f"{pot.total_time_s:.3f}s", 
+    st.metric("Potential Lap", f"{pot.total_time_s:.3f}s",
               delta=f"{pot.improvement_vs_best_s:+.3f}s vs best")
 
 st.divider()
 
 # Tabs
 tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
-    "📊 Telemetry", 
-    "🎯 Corners", 
-    "⚠️ Mistakes", 
-    "🏁 Potential Lap", 
+    "📊 Telemetry",
+    "🎯 Corners",
+    "⚠️ Mistakes",
+    "🏁 Potential Lap",
     "📋 Coaching",
     "🗺️ Track Map",
     "🏎️ F1"
@@ -152,64 +183,64 @@ tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
 # ---- TAB 1: Telemetry ----
 with tab1:
     st.subheader("Telemetry Overlay")
-    
+
     lap_numbers = sorted(session["lap_number"].unique())
     selected_laps = st.multiselect("Select laps to overlay", lap_numbers, default=lap_numbers[:3])
-    
+
     # Channel selector
     channels = st.multiselect(
-        "Channels", 
+        "Channels",
         ["speed_kmh", "throttle", "brake", "steering", "gear", "rpm"],
         default=["speed_kmh", "throttle", "brake"]
     )
-    
+
     if selected_laps and channels:
         fig = make_subplots(
-            rows=len(channels), cols=1, 
-            shared_xaxes=True, 
+            rows=len(channels), cols=1,
+            shared_xaxes=True,
             vertical_spacing=0.05,
             subplot_titles=channels
         )
-        
+
         for lap_num in selected_laps:
             lap_df = session[session["lap_number"] == lap_num].sort_values("track_position")
             tp = lap_df["track_position"]
-            
+
             for i, ch in enumerate(channels):
                 fig.add_trace(
-                    go.Scatter(x=tp, y=lap_df[ch], name=f"L{lap_num}", 
+                    go.Scatter(x=tp, y=lap_df[ch], name=f"L{lap_num}",
                                mode="lines", line=dict(width=1.5)),
                     row=i+1, col=1
                 )
-        
-        fig.update_layout(height=200*len(channels), showlegend=True, 
+
+        fig.update_layout(height=200*len(channels), showlegend=True,
                           xaxis_title="Track Position")
         st.plotly_chart(fig, use_container_width=True)
 
 # ---- TAB 2: Corners ----
 with tab2:
     st.subheader("Corner Analysis Table")
-    
+
     # Lap selector
     lap_nums = sorted(table["lap"].unique())
     sel_lap = st.selectbox("Select lap", lap_nums, index=0)
-    
+
     lap_table = table[table["lap"] == sel_lap].copy()
-    
+
     # Format for display
-    display_cols = ["corner", "name", "entry_speed_kmh", "apex_speed_kmh", 
-                    "exit_speed_kmh", "brake_point_m", "throttle_on_s", 
+    display_cols = ["corner", "name", "entry_speed_kmh", "apex_speed_kmh",
+                    "exit_speed_kmh", "brake_point_m", "throttle_on_s",
                     "corner_time_s", "delta_apex_speed_kmh", "delta_brake_point_m",
                     "delta_throttle_on_s", "delta_corner_time_s"]
-    
+
     display_df = lap_table[display_cols].round(2)
     st.dataframe(display_df, use_container_width=True, hide_index=True)
-    
+
     # Corner time comparison chart
     st.subheader("Corner Time vs Reference")
     fig = go.Figure()
     fig.add_trace(go.Bar(
-        x=lap_table["name"], 
+        x=lap_table["name"],
         y=lap_table["corner_time_s"],
         name=f"Lap {sel_lap}",
         marker_color="steelblue"
@@ -217,7 +248,7 @@ with tab2:
     # Reference (lap 1)
     ref_table = table[table["lap"] == 1].sort_values("corner")
     fig.add_trace(go.Bar(
-        x=ref_table["name"], 
+        x=ref_table["name"],
         y=ref_table["corner_time_s"],
         name="Reference (L1)",
         marker_color="lightgray"
@@ -228,22 +259,22 @@ with tab2:
 # ---- TAB 3: Mistakes ----
 with tab3:
     st.subheader("Detected Mistakes")
-    
+
     # Convert to DataFrame
     m_df = mistakes.mistakes_to_dataframe(mistake_list)
     tl_df = timeloss.time_loss_to_dataframe(time_loss_list)
-    
+
     if not m_df.empty:
         # Merge with time loss
         merged = m_df.merge(
             tl_df[["lap", "corner", "mistake_type", "time_loss_s"]],
             on=["lap", "corner", "mistake_type"], how="left"
         )
-        
+
         # Filters
         col1, col2, col3 = st.columns(3)
         with col1:
-            lap_filter = st.multiselect("Filter by lap", sorted(merged["lap"].unique()), 
+            lap_filter = st.multiselect("Filter by lap", sorted(merged["lap"].unique()),
                                         default=sorted(merged["lap"].unique()))
         with col2:
             type_filter = st.multiselect("Filter by type", sorted(merged["mistake_type"].unique()),
@@ -251,19 +282,19 @@ with tab3:
         with col3:
             conf_filter = st.multiselect("Filter by confidence", sorted(merged["confidence"].unique()),
                                          default=sorted(merged["confidence"].unique()))
-        
+
         filtered = merged[
-            merged["lap"].isin(lap_filter) & 
+            merged["lap"].isin(lap_filter) &
             merged["mistake_type"].isin(type_filter) &
             merged["confidence"].isin(conf_filter)
         ].sort_values(["lap", "corner", "time_loss_s"], ascending=[True, True, False])
-        
+
         st.dataframe(
-            filtered[["lap", "corner_name", "mistake_type", "confidence", 
+            filtered[["lap", "corner_name", "mistake_type", "confidence",
                       "delta_value", "threshold_value", "time_loss_s", "message"]].round(3),
             use_container_width=True, hide_index=True
         )
-        
+
         # Summary charts
         col1, col2 = st.columns(2)
         with col1:
@@ -272,7 +303,7 @@ with tab3:
             fig = go.Figure(go.Bar(x=type_counts.index, y=type_counts.values))
             fig.update_layout(yaxis_title="Count")
             st.plotly_chart(fig, use_container_width=True)
-        
+
         with col2:
             st.subheader("Time Loss by Lap")
             lap_loss = pd.DataFrame(list(totals.items()), columns=["lap", "loss_s"])
@@ -285,10 +316,10 @@ with tab3:
 # ---- TAB 4: Potential Lap ----
 with tab4:
     st.subheader("Potential (Best-Sector) Lap")
-    
+
     pot_df = potential_lap.potential_lap_to_dataframe(pot)
     st.dataframe(pot_df.round(3), use_container_width=True, hide_index=True)
-    
+
     # Sector source visualization
     st.subheader("Sector Sources")
     sector_info = []
@@ -299,34 +330,34 @@ with tab4:
             "Source Lap": f"L{st_sec.lap}",
         })
     st.table(pd.DataFrame(sector_info))
-    
+
     # Potential lap telemetry overlay
     st.subheader("Potential Lap vs Best Actual")
     try:
         pot_telemetry = potential_lap.interpolate_potential_telemetry(pot, session, cfg)
-        
-        best_lap = min(lap_nums, key=lambda l: 
-            session[session.lap_number==l]["timestamp"].max() - 
-            session[session.lap_number==l]["timestamp"].min())
+
+        best_lap = min(lap_nums, key=lambda lap:
+            session[session.lap_number==lap]["timestamp"].max() -
+            session[session.lap_number==lap]["timestamp"].min())
         best_df = session[session.lap_number == best_lap].sort_values("track_position")
-        
-        fig = make_subplots(rows=2, cols=1, shared_xaxes=True, 
+
+        fig = make_subplots(rows=2, cols=1, shared_xaxes=True,
                            subplot_titles=["Speed", "Throttle/Brake"])
-        
+
         fig.add_trace(go.Scatter(x=pot_telemetry["track_position"], y=pot_telemetry["speed_kmh"],
                                  name="Potential", line=dict(color="gold", width=2)), row=1, col=1)
         fig.add_trace(go.Scatter(x=best_df["track_position"], y=best_df["speed_kmh"],
                                  name=f"Best Actual (L{best_lap})", line=dict(color="steelblue", width=1.5)), row=1, col=1)
-        
+
         fig.add_trace(go.Scatter(x=pot_telemetry["track_position"], y=pot_telemetry["throttle"],
                                  name="Potential Throttle", line=dict(color="green", width=1.5)), row=2, col=1)
         fig.add_trace(go.Scatter(x=pot_telemetry["track_position"], y=pot_telemetry["brake"],
                                  name="Potential Brake", line=dict(color="red", width=1.5)), row=2, col=1)
         fig.add_trace(go.Scatter(x=best_df["track_position"], y=best_df["throttle"],
-                                 name=f"Actual Throttle", line=dict(color="lightgreen", width=1)), row=2, col=1)
+                                 name="Actual Throttle", line=dict(color="lightgreen", width=1)), row=2, col=1)
         fig.add_trace(go.Scatter(x=best_df["track_position"], y=best_df["brake"],
-                                 name=f"Actual Brake", line=dict(color="pink", width=1)), row=2, col=1)
-        
+                                 name="Actual Brake", line=dict(color="pink", width=1)), row=2, col=1)
+
         fig.update_layout(height=500, xaxis_title="Track Position")
         st.plotly_chart(fig, use_container_width=True)
     except Exception as e:
@@ -335,18 +366,57 @@ with tab4:
 # ---- TAB 5: Coaching ----
 with tab5:
     st.subheader("Coaching Directives")
-    
+
+    # ---- M5: Race-engineer callout (LLM is display-only, never decides) ----
+    st.divider()
+    st.markdown("**📣 Race Engineer**")
+    with st.expander("Why use the LLM? (architect.md)", expanded=False):
+        st.caption(
+            "The diagnosis below is fully deterministic. When enabled, a local "
+            "Ollama model (qwen2.5:7b) *phrases* that diagnosis into a coach's "
+            "callout. It never decides what a mistake is or how much time it "
+            "costs — that stays in the deterministic engine."
+        )
+    eng_cfg = Config.from_file()
+    eng_mode = st.segmented_control(
+        "Engineer mode",
+        ["Template", "LLM (Ollama)"],
+        default="LLM (Ollama)" if eng_cfg.llm.enabled else "Template",
+        key="engineer_mode",
+        selection_mode="single",
+    )
+    from pitmind import summarize as _summ
+    eng_bundle = {
+        "directives": results["directives"],
+        "mistakes": results["mistakes"],
+        "potential_lap": results["potential_lap"],
+        "summary": mistakes.summarize_mistakes(results["mistakes"]),
+        "total_time_loss_s": sum(t.time_loss_s for t in results["time_losses"]),
+    }
+    eng_caps = {}
+    eng_callout = _summ.engineer_callout(
+        eng_bundle, eng_cfg, capabilities=eng_caps,
+        force=(eng_mode == "LLM (Ollama)"),
+    )
+    st.markdown(f"> {eng_callout}")
+    st.caption(
+        "Template mode is deterministic and needs no server. LLM mode calls your "
+        f"local Ollama model `{eng_cfg.llm.model}`; it falls back to the template "
+        "if the server is unreachable."
+    )
+    st.divider()
+
     if directives:
         dir_df = coaching.directives_to_dataframe(directives)
-        
+
         # Priority filter
         prio_filter = st.multiselect("Priority", [1, 2, 3], default=[1, 2])
         filtered_dir = dir_df[dir_df["priority"].isin(prio_filter)]
-        
+
         for _, row in filtered_dir.iterrows():
             priority_colors = {1: "🔴", 2: "🟡", 3: "🟢"}
             badge = priority_colors.get(row["priority"], "⚪")
-            
+
             with st.container():
                 col1, col2 = st.columns([1, 6])
                 with col1:
@@ -355,7 +425,7 @@ with tab5:
                 with col2:
                     st.markdown(f"**{row['message']}**")
                     st.caption(f"Category: {row['category']} | Confidence: {row['confidence']} | Est. loss: {row['time_loss_s']:.2f}s")
-        
+
         # Full report
         st.divider()
         with st.expander("📄 Full Session Report"):
@@ -419,6 +489,23 @@ with tab7:
         st.markdown("**Driver deltas vs field reference**")
         for code, text in phrases.items():
             st.info(f"**{code}**\n\n```\n{text}\n```")
+
+        # ---- M5/C3: sector-level deltas ----
+        st.divider()
+        st.markdown("**Sector time-loss deltas (S1/S2/S3)**")
+        sector_table = f1_results["sector_table"]
+        sector_phrases = f1_results["sector_phrases"]
+        if not sector_table.empty:
+            ref = f1_results["sector_deltas"][0].ref_sector_loss_s if f1_results["sector_deltas"] else 0.0
+            piv = sector_table.pivot(index="sector", columns="driver", values="delta_s")
+            st.plotly_chart(
+                _comp_bar_figure(piv, ref),
+                use_container_width=True,
+            )
+            for code, text in sector_phrases.items():
+                focus = next((ln for ln in text.splitlines() if "focus:" in ln), "")
+                st.caption(f"**{code}** {focus}")
+            st.dataframe(sector_table.round(4), use_container_width=True)
 
         # ---- track map on real F1 x/y ----
         st.divider()

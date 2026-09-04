@@ -11,8 +11,8 @@ import os
 import pandas as pd
 import pytest
 
-from pitmind.config import Config
 from f1 import comparison
+from pitmind.config import Config
 
 DATA = os.path.join(os.path.dirname(__file__), "..", "data")
 DRIVERS = ["VER", "LEC", "SAI"]
@@ -92,3 +92,42 @@ def test_phrase_delta_readable(sessions, cfg):
 def test_requires_at_least_two_drivers(sessions, cfg):
     with pytest.raises(ValueError):
         comparison.compare_drivers({"VER": sessions["VER"]}, cfg)
+
+
+# ------------------------------------------------------------- sector (M5/C3)
+def test_compare_sectors_returns_non_reference_driver_sectors(sessions, cfg):
+    deltas = comparison.compare_sectors(sessions, cfg, reference_driver="SAI")
+    assert {s.driver for s in deltas} == {"VER", "LEC"}
+    for s in deltas:
+        assert s.sector in (1, 2, 3)
+        assert s.delta_s == pytest.approx(s.driver_sector_loss_s - s.ref_sector_loss_s, abs=1e-3)
+        assert s.n_corners >= 0
+
+
+def test_compare_sectors_all_three_sectors_present(sessions, cfg):
+    deltas = comparison.compare_sectors(sessions, cfg, reference_driver="SAI")
+    for driver in {"VER", "LEC"}:
+        secs = {s.sector for s in deltas if s.driver == driver}
+        assert secs == {1, 2, 3}
+
+
+def test_sector_corner_assignment_uses_lap_order():
+    assert comparison._corner_to_sector(0, 9) == 1
+    assert comparison._corner_to_sector(4, 9) == 2   # floor((4.5)/9*3)+1 = floor(1.5)+1=2
+    assert comparison._corner_to_sector(8, 9) == 3
+    assert comparison._corner_to_sector(0, 0) == 1   # degenerate guard
+
+
+def test_sector_comparison_to_dataframe(sessions, cfg):
+    deltas = comparison.compare_sectors(sessions, cfg, reference_driver="LEC")
+    df = comparison.sector_comparison_to_dataframe(deltas)
+    assert {"driver", "sector", "delta_s", "driver_loss_s", "ref_loss_s", "n_corners"} <= set(df.columns)
+    assert df["sector"].isin(["S1", "S2", "S3"]).all()
+
+
+def test_phrase_sector_delta_readable(sessions, cfg):
+    deltas = comparison.compare_sectors(sessions, cfg, reference_driver="LEC")
+    text = comparison.phrase_sector_delta(deltas, "VER")
+    assert "VER" in text and "sector" in text.lower()
+    assert "S" in text
+

@@ -36,7 +36,7 @@ def split_laps(df: pd.DataFrame) -> list[pd.DataFrame]:
     """Split a session into per-lap DataFrames."""
     starts = detect_boundaries(df)
     laps = []
-    for a, b in zip(starts[:-1], starts[1:]):
+    for a, b in zip(starts[:-1], starts[1:], strict=True):
         laps.append(df.iloc[a:b].reset_index(drop=True))
     return laps
 

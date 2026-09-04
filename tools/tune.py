@@ -137,7 +137,7 @@ def sanity_check_f1(bundle: dict, expected_corners: int = 7, corner_tol: int = 2
     notes.append(f"steering capability off (F1 mode)={steering_off}")
 
     losses = [t.time_loss_s for t in bundle["time_losses"]]
-    in_range = all(0.0 <= l <= max_time_loss_s for l in losses) if losses else True
+    in_range = all(0.0 <= loss <= max_time_loss_s for loss in losses) if losses else True
     checks["time_loss_range"] = in_range
     mx = max(losses) if losses else 0.0
     notes.append(f"time-loss range [0, {mx:.2f}]s (cap {max_time_loss_s}s) -> "
@@ -165,7 +165,6 @@ def _fmt_time(s: float) -> str:
 
 
 def print_report(bundle: dict) -> None:
-    cfg = bundle["cfg"]
     print("=" * 60)
     print("PitMind validation report")
     print("=" * 60)
@@ -355,6 +354,9 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--f1-corners", type=int, default=7,
                         help="Expected corner count for the --f1 sanity check (default 7 "
                              "= Monza). Pass the circuit's known value (spa ~19, silverstone ~17)")
+    parser.add_argument("--summary", action="store_true",
+                        help="Print a race-engineer callout (local Ollama qwen2.5:7b; "
+                             "falls back to a deterministic template — todo.md M5)")
     args = parser.parse_args(argv)
 
     csv_path = Path(args.csv)
@@ -381,6 +383,11 @@ def main(argv: list[str] | None = None) -> int:
         suggestions = suggest_thresholds(bundle)
         recs = {info["path"]: info["recommended"] for info in suggestions.values()}
         apply_thresholds(recs, config_path=Path(args.config))
+
+    if args.summary:
+        from pitmind import summarize
+        print("\n=== Race engineer ===")
+        print(summarize.engineer_callout(bundle, cfg, capabilities=caps, force=True))
     return 0
 
 

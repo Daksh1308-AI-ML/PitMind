@@ -88,9 +88,10 @@ class TrackData:
 
 
 # Import circuit module at top level
-import sys
+import sys  # noqa: E402
+
 sys.path.insert(0, str(Path(__file__).parent))
-import circuit as circuit_mod
+import circuit as circuit_mod  # noqa: E402
 
 
 def build_track_generic() -> TrackData:
@@ -298,7 +299,6 @@ def build_speed_profile(plan: dict) -> tuple[np.ndarray, np.ndarray]:
     corners = plan["corners"]
     L = plan["L"]
     apex, exit_, entry, brake_start = plan["apex"], plan["exit"], plan["entry"], plan["brake_start"]
-    n = len(corners)
 
     pts = []
     for i, c in enumerate(corners):
@@ -328,7 +328,6 @@ def build_speed_profile(plan: dict) -> tuple[np.ndarray, np.ndarray]:
 
 
 def _thr_offset(i: int, plan: dict) -> float:
-    corners = plan["corners"]
     return plan.get("_thr_delay", {}).get(i, 0.0) * plan["apex"][i]
 
 
@@ -341,7 +340,6 @@ def sample_lap(plan, params, lap_index, lap_start_time, cx, cy, L, curv_1m) -> p
     corners = plan["corners"]
     n = len(corners)
     brake_ranges = [(plan["brake_start"][i], corners[i].start_s) for i in range(n)]
-    apex = plan["apex"]
 
     rows = []
     s = 0.0

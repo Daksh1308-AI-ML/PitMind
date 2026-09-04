@@ -46,7 +46,7 @@ def test_suggest_thresholds_shape(session_df, cfg):
     bundle = tune.run_pipeline(session_df, cfg)
     sugg = tune.suggest_thresholds(bundle)
     # every metric in the map either produced a recommendation or was skipped
-    for col, info in sugg.items():
+    for _col, info in sugg.items():
         for key in ("current", "recommended", "flag_rate", "p50", "p85"):
             assert key in info
         assert info["flag_rate"] is None or 0.0 <= info["flag_rate"] <= 1.0

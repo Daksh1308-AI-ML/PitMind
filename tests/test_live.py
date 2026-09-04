@@ -12,8 +12,8 @@ import os
 import pandas as pd
 import pytest
 
-from pitmind.config import Config
 from f1 import live
+from pitmind.config import Config
 
 DATA = os.path.join(os.path.dirname(__file__), "..", "data", "f1_monza_laps.csv")
 

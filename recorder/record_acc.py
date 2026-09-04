@@ -131,7 +131,6 @@ class ACCRecorder:
     def _map(self, sm) -> dict:
         phys = sm.Physics
         gfx = sm.Graphics
-        static = sm.Static
 
         # player world position: pick this car's entry out of the full grid
         x = y = z = float("nan")
@@ -181,7 +180,6 @@ def _bounded(v: float) -> float:
 def main(argv=None) -> int:
     """CLI entry: record a session (Ctrl-C to stop)."""
     import argparse
-    import sys
 
     parser = argparse.ArgumentParser(description="PitMind ACC telemetry recorder")
     parser.add_argument(

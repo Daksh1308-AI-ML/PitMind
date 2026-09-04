@@ -63,7 +63,8 @@ Guiding principle (from concept doc):
 | `pitmind/reference.py` | Pick reference lap (best lap / best sector / best corner) and align laps | track-distance alignment |
 | `pitmind/mistakes.py` | Classify mistakes with confidence (EARLY_BRAKING, LOW_APEX_SPEED, ...) | threshold rules (doc §14), later ML |
 | `pitmind/timeloss.py` | Estimate lost seconds per corner and per lap | kinematic heuristic (MVP), later ML |
-| `pitmind/coaching.py` | Convert analysis into short, actionable directives | templates now, optional LLM hook later |
+| `pitmind/coaching.py` | Convert analysis into short, actionable directives | templates (priority-ordered) |
+| `pitmind/summarize.py` | **Race-engineer callout** (display-only): rephrase the diagnosis | `TemplateEngineer` (deterministic) ⇄ `OllamaEngineer` (local `qwen2.5:7b`) with automatic fallback — **never in the decision path** |
 | `pitmind/potential_lap.py` | Compute composite best-sector/best-corner lap | doc §16 |
 
 *Synthetic fixture:* `synthetic/circuit.py` loads a circuit GeoJSON, projects lat/lon → meters,
@@ -96,7 +97,10 @@ works identically for synthetic data and real recorded ACC laps.
 
 Extends the same contract to **real Formula 1 telemetry**. `f1/fastf1_bridge.py` converts a FastF1
 session (public F1 timing/telemetry) into the exact 13-column session DataFrame the pipeline
-consumes, so the full analysis core runs on real F1 drivers with zero analysis changes:
+consumes, so the full analysis core runs on real F1 drivers with zero analysis changes.
+`f1/openf1.py` is a dependency-light (stdlib `urllib`) *alternative* source that maps OpenF1's
+`car_data` rows to the same contract — both feed the identical analysis, and
+`f1/live.openf1_source()` exposes OpenF1 as a live feed under the same signature as FastF1:
 
 - Field mapping: `Speed`→`speed_kmh`; `Throttle` (0–100 %)→`throttle` (0–1, ÷100);
   `Brake` (bool)→`brake` (0/1 float); `nGear`→`gear`; `RPM`→`rpm`;
@@ -119,11 +123,15 @@ consumes, so the full analysis core runs on real F1 drivers with zero analysis c
 
 | Milestone | Content | Status |
 |---|---|---|
-| M0 | Validate models on **real recorded ACC laps** (`tools/tune.py --write`) | open (todo §5 blocker) |
-| M1 | `f1/fastf1_bridge.py` + CLI + contract tests on a committed fixture | open |
-| M2 | Capability-aware mistakes + F1 sanity validation (corner counts, time-loss ranges) | open |
-| M3 | Multi-driver F1 delta + `🏎️ F1` dashboard tab (reuses track map) | open |
-| M4 | Live race-engineer view + corner heat-map overlays + licensing README | open |
+| M0 | Validate models on **real recorded ACC laps** (`tools/tune.py --write`) | open (todo §5 blocker — needs sim rig) |
+| M1 | `f1/fastf1_bridge.py` + CLI + contract tests on a committed fixture | done |
+| M2 | Capability-aware mistakes + F1 sanity validation (corner counts, time-loss ranges) | done |
+| M3 | Multi-driver F1 delta + `🏎️ F1` dashboard tab (reuses track map) | done |
+| M4 | Live race-engineer view + corner heat-map overlays + licensing README | done |
+| M5 | LLM race-engineer callout (display-only, Ollama + template fallback) | done |
+| C1–C3 | OpenF1 client/bridge, multi-track validation, sector comparisons | done |
+| B | CI, ruff, packaging + console scripts, badges, demo docs | done |
+| **suite** | 131 tests passing + `ruff check` green | done |
 
 ## Data Flow (one lap)
 
@@ -158,8 +166,9 @@ consumes, so the full analysis core runs on real F1 drivers with zero analysis c
 1. **No per-track geometry at analysis time.** Corner detection is derived from telemetry alone
    (x/y path → chord-based curvature + brake zones). Any F1 circuit works with zero config.
    Circuit geometry files exist **only** as synthetic-generator fixtures for dev/test data.
-2. **LLM is not in the decision path.** ML/rules decide; templates (or later an LLM) only phrase
-   the coaching. Keeps the system reliable (doc §21, §34).
+2. **LLM is not in the decision path.** ML/rules decide; the LLM only phrases the
+   coaching (implemented as `pitmind/summarize.py`, display-only, with a deterministic
+   template fallback — so it's never a correctness risk) (doc §21, §34).
 3. **Start rule-based, graduate to ML.** Mistake thresholds and time-loss are heuristics in the MVP;
    the interfaces must tolerate swapping in models later (doc §26 stages).
 4. **Analysis quality gates coaching.** Garbage in = garbage out. Telemetry correctness is the

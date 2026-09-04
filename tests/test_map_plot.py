@@ -8,9 +8,9 @@ import pandas as pd
 import plotly.graph_objects as go
 import pytest
 
-from pitmind.config import Config
-from pitmind import corners
 from dashboard import map_plot
+from pitmind import corners
+from pitmind.config import Config
 
 DATA = os.path.join(os.path.dirname(__file__), "..", "data", "synthetic_generic_f1.csv")
 

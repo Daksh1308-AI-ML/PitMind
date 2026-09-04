@@ -7,12 +7,10 @@ coaching messages for the driver.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Literal
 
 import pandas as pd
 
-from pitmind import mistakes, timeloss, potential_lap
-from pitmind.config import Config
+from pitmind import mistakes, potential_lap, timeloss
 
 
 @dataclass(frozen=True)
@@ -66,7 +64,7 @@ def format_message(m: mistakes.Mistake, time_loss: float) -> str:
     """Format a coaching message from a mistake and its time loss."""
     template_dict = TEMPLATES.get(m.mistake_type, {})
     template = template_dict.get(m.confidence.value, "{mistake_type} at {corner}")
-    
+
     abs_delta = abs(m.delta_value)
     return template.format(
         corner=m.corner_name,
@@ -106,13 +104,13 @@ def generate_directives(
     max_total: int = 10,
 ) -> list[CoachingDirective]:
     """Generate prioritized coaching directives.
-    
+
     Args:
         mistake_list: Detected mistakes
         time_loss_list: Corresponding time loss estimates
         max_per_lap: Max directives per lap
         max_total: Max total directives
-    
+
     Returns:
         Sorted list of CoachingDirective (highest priority first)
     """
@@ -121,13 +119,13 @@ def generate_directives(
         (t.lap, t.corner, t.mistake_type): t.time_loss_s
         for t in time_loss_list
     }
-    
+
     directives: list[CoachingDirective] = []
-    
+
     for m in mistake_list:
         key = (m.lap, m.corner, m.mistake_type.value)
         t_loss = loss_lookup.get(key, 0.0)
-        
+
         directive = CoachingDirective(
             priority=priority_from_confidence(m.confidence.value, t_loss),
             category=category_from_type(m.mistake_type),
@@ -138,10 +136,10 @@ def generate_directives(
             confidence=m.confidence.value,
         )
         directives.append(directive)
-    
+
     # Sort by priority, then by time loss descending
     directives.sort(key=lambda d: (d.priority, -d.time_loss_s))
-    
+
     # Filter: max per lap
     per_lap_count: dict[int, int] = {}
     filtered: list[CoachingDirective] = []
@@ -150,7 +148,7 @@ def generate_directives(
         if count < max_per_lap:
             filtered.append(d)
             per_lap_count[d.lap] = count + 1
-    
+
     # Limit total
     return filtered[:max_total]
 
@@ -159,7 +157,7 @@ def directives_to_dataframe(directives: list[CoachingDirective]) -> pd.DataFrame
     """Convert to DataFrame for display."""
     if not directives:
         return pd.DataFrame(columns=[
-            "priority", "category", "corner", "lap", "message", 
+            "priority", "category", "corner", "lap", "message",
             "time_loss_s", "confidence",
         ])
     return pd.DataFrame([
@@ -187,20 +185,20 @@ def generate_session_report(
     lines.append("PITMIND COACHING REPORT")
     lines.append("=" * 50)
     lines.append("")
-    
+
     # Potential lap summary
     lines.append(f"Potential Lap Time: {potential.total_time_s:.3f}s")
     lines.append(f"  vs Best Actual: {potential.improvement_vs_best_s:+.3f}s")
     lines.append(f"  vs Reference:   {potential.improvement_vs_ref_s:+.3f}s")
     lines.append(f"  Sectors from:   L{potential.source_laps}")
     lines.append("")
-    
+
     # Time loss summary
     lines.append("TIME LOSS BY LAP:")
     for lap, loss in sorted(total_time_loss.items()):
         lines.append(f"  Lap {lap}: {loss:.3f}s")
     lines.append("")
-    
+
     # Directives grouped by priority
     for prio in [1, 2, 3]:
         prio_directives = [d for d in session_directives if d.priority == prio]
@@ -211,5 +209,5 @@ def generate_session_report(
         for d in prio_directives:
             lines.append(f"  L{d.lap} {d.corner_name}: {d.message}")
         lines.append("")
-    
+
     return "\n".join(lines)

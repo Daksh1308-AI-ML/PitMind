@@ -7,8 +7,7 @@ configurable thresholds to classify each corner/lap into mistake types.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from enum import Enum
-from typing import Literal
+from enum import StrEnum
 
 import numpy as np
 import pandas as pd
@@ -16,7 +15,7 @@ import pandas as pd
 from pitmind.config import Config
 
 
-class MistakeType(str, Enum):
+class MistakeType(StrEnum):
     """Classified driver mistake categories."""
     EARLY_BRAKE = "early_brake"
     LATE_BRAKE = "late_brake"
@@ -26,7 +25,7 @@ class MistakeType(str, Enum):
     EXCESS_STEERING = "excess_steering"
 
 
-class ConfidenceLevel(str, Enum):
+class ConfidenceLevel(StrEnum):
     """Confidence levels based on threshold bands."""
     WEAK = "weak"       # barely crosses threshold
     SIGNIFICANT = "significant"  # clear mistake

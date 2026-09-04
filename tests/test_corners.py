@@ -7,13 +7,12 @@ from __future__ import annotations
 
 import math
 
-import pandas as pd
 import pytest
 
-from pitmind import corners, events, segmentation, features, mistakes, timeloss, potential_lap
+from pitmind import corners, events, features, mistakes, potential_lap, segmentation, timeloss
 from pitmind.config import Config
-from synthetic import generator as gen
 from synthetic import circuit as circuit_mod
+from synthetic import generator as gen
 
 A_LAT = gen.A_LAT
 
@@ -70,7 +69,7 @@ class TestCornerDetection:
 
     def test_no_invalid_total_turn_check(self, detected):
         """Total turning angle should be approximately -360° (clockwise) or +360° (CCW).
-        
+
         This replaces the old hardcoded 'total == 360' check which was invalid
         for non-simple circuits and noisy telemetry.
         """
@@ -213,19 +212,17 @@ class TestMistakeDetection:
         """All mistake types from ground truth should be detectable."""
         _, mistake_list, _, gt = full_results
         m_df = mistakes.mistakes_to_dataframe(mistake_list)
-        
+
         # Check that each GT mistake type has at least one detection
-        gt_brake_early = sum(1 for gl in gt["laps"] for gc in gl["corners"] 
+        gt_brake_early = sum(1 for gl in gt["laps"] for gc in gl["corners"]
                             if "brake_shift_m" in gc and gc["brake_shift_m"] > 0)
-        gt_brake_late = sum(1 for gl in gt["laps"] for gc in gl["corners"] 
+        gt_brake_late = sum(1 for gl in gt["laps"] for gc in gl["corners"]
                            if "brake_shift_m" in gc and gc["brake_shift_m"] < 0)
-        gt_low_apex = sum(1 for gl in gt["laps"] for gc in gl["corners"] 
+        gt_low_apex = sum(1 for gl in gt["laps"] for gc in gl["corners"]
                          if "apex_deficit_kmh" in gc)
-        gt_late_thr = sum(1 for gl in gt["laps"] for gc in gl["corners"] 
+        gt_late_thr = sum(1 for gl in gt["laps"] for gc in gl["corners"]
                          if "throttle_delay_s" in gc)
-        gt_slow_exit = sum(1 for gl in gt["laps"] for gc in gl["corners"] 
-                          if "exit_deficit_kmh" in gc)
-        
+
         # These should have some detections (allowing for false negatives)
         detected_types = set(m_df["mistake_type"].unique())
         assert mistakes.MistakeType.EARLY_BRAKE.value in detected_types or gt_brake_early == 0
@@ -250,7 +247,7 @@ class TestMistakeDetection:
         """Total time loss per lap should be plausible."""
         _, _, time_loss_list, _ = full_results
         totals = timeloss.total_time_loss_per_lap(time_loss_list)
-        for lap, loss in totals.items():
+        for _lap, loss in totals.items():
             assert 0 <= loss <= 10.0  # max ~10s lost per lap
 
     def test_potential_lap_improves_on_actual(self, data):
@@ -270,12 +267,12 @@ class TestTimeLoss:
         from pitmind.config import Config
         cfg = Config.from_file()
         entry_speed = 80 / 3.6
-        
+
         loss_early_10 = timeloss._kinematic_brake_loss(-10.0, entry_speed, cfg)
         loss_early_20 = timeloss._kinematic_brake_loss(-20.0, entry_speed, cfg)
         loss_late_10 = timeloss._kinematic_brake_loss(10.0, entry_speed, cfg)
         loss_late_20 = timeloss._kinematic_brake_loss(20.0, entry_speed, cfg)
-        
+
         assert loss_early_20 > loss_early_10
         assert loss_late_20 > loss_late_10
         assert loss_early_10 > 0 and loss_late_10 > 0
@@ -286,11 +283,11 @@ class TestTimeLoss:
         cfg = Config.from_file()
         radius = 100.0
         ref_speed = 100.0  # reference apex speed
-        
+
         loss_5 = timeloss._kinematic_apex_loss(-5.0, ref_speed, radius, cfg)
         loss_10 = timeloss._kinematic_apex_loss(-10.0, ref_speed, radius, cfg)
         loss_20 = timeloss._kinematic_apex_loss(-20.0, ref_speed, radius, cfg)
-        
+
         assert loss_10 > loss_5
         assert loss_20 > loss_10
         assert loss_5 > 0
@@ -300,10 +297,10 @@ class TestTimeLoss:
         from pitmind.config import Config
         cfg = Config.from_file()
         exit_speed = 100 / 3.6
-        
+
         loss_01 = timeloss._kinematic_throttle_loss(0.1, exit_speed, cfg)
         loss_03 = timeloss._kinematic_throttle_loss(0.3, exit_speed, cfg)
-        
+
         assert loss_03 > loss_01
         assert loss_01 > 0
 
@@ -313,10 +310,10 @@ class TestTimeLoss:
         cfg = Config.from_file()
         straight = 200.0
         ref_speed = 150.0  # reference exit speed
-        
+
         loss_5 = timeloss._kinematic_exit_loss(-5.0, ref_speed, straight, cfg)
         loss_15 = timeloss._kinematic_exit_loss(-15.0, ref_speed, straight, cfg)
-        
+
         assert loss_15 > loss_5
         assert loss_5 > 0
 
@@ -325,9 +322,9 @@ class TestTimeLoss:
         from pitmind.config import Config
         cfg = Config.from_file()
         corner_time = 3.0
-        
+
         loss_02 = timeloss._kinematic_steering_loss(0.25, corner_time, cfg)  # 0.1 excess
         loss_05 = timeloss._kinematic_steering_loss(0.55, corner_time, cfg)  # 0.4 excess
-        
+
         assert loss_05 > loss_02
         assert loss_02 >= 0

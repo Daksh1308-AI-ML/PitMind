@@ -13,10 +13,10 @@
 | Reference lap | Best lap (+ best corner, best sector for potential lap) | Configurable |
 | Mistake detection | Threshold rules (doc §14) | Thresholds in config; ML later (doc §26) |
 | Time loss | Kinematic heuristic | ML later once labeled data exists |
-| Coaching | Templates | Optional LLM hook isolated (doc §21) |
+| Coaching | Templates + optional LLM phrasing (display-only) | `pitmind/summarize.py`: `TemplateEngineer` ⇄ local Ollama, auto-fallback — LLM never in the decision path (doc §21) |
 | UI | Streamlit + Plotly | Quick MVP dashboards |
 | Circuit map | Drawn from the lap's `x,y` path | Never from a GeoJSON — works for synthetic **and** recorded laps |
-| F1 data | FastF1 (public telemetry) → CSV contract | FastF1/OpenF1 are educational/non-commercial (CC BY-NC-SA) |
+| F1 data | FastF1 + OpenF1 → same CSV contract | `f1/fastf1_bridge.py` + `f1/openf1.py`; educational/non-commercial (CC BY-NC-SA) |
 | F1 sampling | ~4 Hz coarse broadcast | Chord-curvature resamples to its own arc grid — OK |
 
 ## Synthetic Track Data (fixtures only)
@@ -181,9 +181,12 @@ Key design decisions:
   here = professional-grade analysis of public data; an FOM-commercial license is a separate
   business thread.
 
-Ambitions later: multi-driver teammates delta ("VER −0.22 s to LEC in T7, 14 m early braking"),
-a `🏎️ F1` dashboard tab reusing the track map, and a live race-engineer view from FastF1
-livetiming / OpenF1 (~3 s delay).
+Now landed: multi-driver teammates delta ("VER −0.22 s to LEC in T7, 14 m early braking"),
+**S1/S2/S3 sector roll-ups** (`f1/comparison.compare_sectors`), a `🏎️ F1` dashboard tab
+reusing the track map, a live race-engineer view from FastF1 / OpenF1 (~3 s delay)
+(`f1/live.fastf1_source` / `f1.live.openf1_source`), and an **LLM race-engineer callout**
+(display-only, Ollama `qwen2.5:7b` with deterministic template fallback). The suite is
+**131 tests passing** with `ruff check` clean in CI (`.github/workflows/ci.yml`).
 
 ## Success Criteria (doc §35)
 

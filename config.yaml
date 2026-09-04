@@ -29,3 +29,13 @@ synthetic:
   laps: 12
   track_kind: monza
   reference_lap_rank: 1
+
+# Race-engineer summariser (todo.md M5 / plan A).
+# The LLM is a *display-only* layer: it rephrases the deterministic diagnosis,
+# it never decides what a mistake is or how much time it costs (architect.md).
+llm:
+  provider: ollama        # ollama | off
+  base_url: http://localhost:11434
+  model: "qwen2.5:7b"     # verified installed (id 845dbda0ea48)
+  enabled: false          # default OFF so nothing needs the server; opt-in via
+                          #   --summary (tune/f1) or the dashboard toggle.

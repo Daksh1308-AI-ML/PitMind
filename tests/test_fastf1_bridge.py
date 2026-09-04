@@ -15,7 +15,6 @@ import pytest
 from f1.fastf1_bridge import (
     BRIDGE_COLUMNS,
     FastF1Bridge,
-    STEERING_SENTINEL,
     _synthesize_track_position,
 )
 
@@ -137,11 +136,9 @@ def test_lap_number_column_from_input_frames_is_overridden():
 
 def test_prunes_excess_steering_when_capability_off():
     """F1 has no steering channel -> EXCESS_STEERING must never fire."""
-    from pitmind.config import Config
     from pitmind import mistakes
+    from pitmind.config import Config
 
-    lt = _fake_lap_tel(n=200)
-    session = FastF1Bridge().convert_lap(lt)
     # hand-build a minimal feature table row with a large steering_max (would
     # trip EXCESS_STEERING if the flag weren't honoured)
     table = pd.DataFrame([

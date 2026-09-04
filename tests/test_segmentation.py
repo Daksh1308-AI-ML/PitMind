@@ -2,12 +2,11 @@
 
 from __future__ import annotations
 
-import numpy as np
 import pandas as pd
 import pytest
 
-from pitmind.config import Config
 from pitmind import preprocess, segmentation
+from pitmind.config import Config
 
 
 @pytest.fixture(scope="module")

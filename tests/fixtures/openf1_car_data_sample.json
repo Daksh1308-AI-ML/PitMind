@@ -1,0 +1,9 @@
+[
+  {"date": "2024-09-01T13:00:00.000Z", "session_key": 9437, "driver_number": 1, "rpm": 8200, "speed": 298.4, "n_gear": 8, "throttle": 100, "brake": 0, "drs": 10, "x": 721760.2, "y": 5072601.5, "z": 0.0},
+  {"date": "2024-09-01T13:00:00.270Z", "session_key": 9437, "driver_number": 1, "rpm": 8150, "speed": 297.1, "n_gear": 8, "throttle": 100, "brake": 0, "drs": 10, "x": 721738.1, "y": 5072613.2, "z": 0.0},
+  {"date": "2024-09-01T13:00:00.540Z", "session_key": 9437, "driver_number": 1, "rpm": 6900, "speed": 268.3, "n_gear": 7, "throttle": 55, "brake": 0, "drs": 0, "x": 721702.0, "y": 5072631.0, "z": 0.0},
+  {"date": "2024-09-01T13:00:00.810Z", "session_key": 9437, "driver_number": 1, "rpm": 5400, "speed": 211.9, "n_gear": 6, "throttle": 0, "brake": 1, "drs": 0, "x": 721660.4, "y": 5072652.8, "z": 0.0},
+  {"date": "2024-09-01T13:00:01.080Z", "session_key": 9437, "driver_number": 1, "rpm": 4800, "speed": 182.5, "n_gear": 5, "throttle": 0, "brake": 1, "drs": 0, "x": 721620.3, "y": 5072671.3, "z": 0.0},
+  {"date": "2024-09-01T13:00:01.350Z", "session_key": 9437, "driver_number": 1, "rpm": 6200, "speed": 161.4, "n_gear": 4, "throttle": 68, "brake": 0, "drs": 0, "x": 721583.9, "y": 5072680.9, "z": 0.0},
+  {"date": "2024-09-01T13:00:01.620Z", "session_key": 9437, "driver_number": 1, "rpm": 7600, "speed": 172.0, "n_gear": 5, "throttle": 100, "brake": 0, "drs": 0, "x": 721544.2, "y": 5072675.1, "z": 0.0}
+]

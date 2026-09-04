@@ -67,7 +67,7 @@ Legend: `[ ]` todo · `[x]` done · `[~]` in progress · note blockers inline.
 ## 6. Later (roadmap v0.6+)
 
 - [ ] Live telemetry streaming (reuse recorder reader)
-- [ ] Optional LLM coaching phrasing (isolated hook)
+- [ ] ~~Optional LLM coaching phrasing (isolated hook)~~ — **landed in M5** (see below)
 - [ ] ML models replacing thresholds (doc §26 stages)
 - [ ] Voice feedback loop
 
@@ -125,7 +125,7 @@ business path, not engineering). The whole approach relies on architect.md rule 
   - [x] `tools/tune.py --f1` — F1 mode: threads `capabilities` through `run_pipeline`,
         runs `sanity_check_f1` (corner count near expected, steering capability off,
         time-loss within sane range); `--f1-corners <n>` sets the expected count
-        (Monza ~7 default; spa ~19, silverstone ~17)
+        (Monza ~7 default; spa ~13, silverstone ~9, imola ~11 — see C2)
   - [x] `tools/fixture_f1.py` — synthetic F1 Monza lap set (`data/f1_monza_laps.csv`):
         generator output reshaped to raw FastF1 form (bool brake, NO steering,
         Throttle 0-100 %, X/Y/Z in 1/10 m, ~4 Hz) then re-bridged via `f1/` —
@@ -179,9 +179,46 @@ business path, not engineering). The whole approach relies on architect.md rule 
         loop emits each new slice, skips no-new-data, error-handling, severity map, defaults)
   - [x] `tests/test_map_plot.py` — +6 overlay tests (time-loss agg, apex metric, figure
         structure + colorbar + equal aspect, mismatched-corner reject, unknown-metric reject)
+- [x] **M5 — LLM race-engineer callout (display-only)**:
+      local-Ollama `qwen2.5:7b` rephrases the deterministic diagnosis — never in the
+      decision path (architect.md rule 2)
+  - [x] `config.yaml` `llm:` block + `LLMConfig` dataclass (`pitmind/config.py`)
+  - [x] `pitmind/summarize.py` — `EngineerPayload`, `TemplateEngineer` (deterministic
+        fallback), `OllamaEngineer` (stdlib urllib POST /api/generate),
+        `get_provider`, `engineer_callout(force=...)`; verified end-to-end against Ollama
+  - [x] `--summary` flag in `tools/tune.py` + `f1/cli.py`; `LiveLap.engineer_callout`
+        filled when `cfg.llm.enabled` (`f1/live.py`)
+  - [x] dashboard 📣 Race Engineer panel in the Coaching tab (`st.segmented_control`,
+        provider/template toggle) with a bundle adapter (`total_time_loss_s`/`summary`)
+  - [x] `tests/test_summarize.py` — payload shape on real F1 fixture, Template
+        determinism, enabled/off behavior, provider fallback on network error
+        (mocked), capability invariance; + a `@pytest.mark.live` Ollama test
+        (skipped by default)
+- [x] **C1–C3 — more F1 depth**:
+  - [x] C1 `f1/openf1.py` — dependency-light OpenF1 client (stdlib urllib) + bridge to
+        the same 13-col contract + `f1.live.openf1_source()` live source;
+        `tests/test_openf1.py` on a committed JSON fixture + mocked HTTP (7 tests)
+  - [x] C2 `tests/test_tune_f1.py` — parametrized over Monza/Spa/Silverstone/Imola
+        (track-aware corner-count expectations), fixtures generated in-session
+        (19 tests)
+  - [x] C3 `f1/comparison.py` — `compare_sectors()` S1/S2/S3 roll-ups +
+        `phrase_sector_delta()` + dashboard sector bar chart; 5 new tests
+- [x] **B — CI / engineering polish**:
+  - [x] `.github/workflows/ci.yml` — ruff lint job + pytest matrix (3.11, 3.12)
+  - [x] `pyproject.toml` — `[build-system]`, metadata, `[project.scripts]`
+        (`pitmind-tune`, `pitmind-f1`), ruff config, `dev`/`recorder` extras,
+        `live` marker
+  - [x] ruff applied repo-wide (auto-fix + manual) — `ruff check .` → 0 errors
+  - [x] `.gitignore` — `*.egg-info/`, `.ruff_cache/`, `.env`, `f1/_cache/`
+  - [x] `tools/render_readme_images.py` — regenerates README 📸 images (kaleido)
+  - [x] `docs/demo.md` walkthrough; README badges + M5/OpenF1/sector highlights
+  - [x] full suite **131 tests passing**, `ruff check` green
 
 ### Open decisions (not yet resolved)
 - Data source: FastF1 only, or also OpenF1 as a live secondary source?
+  → **Resolved (C1):** `f1/openf1.py` is a dependency-light (stdlib urllib) OpenF1
+  client + bridge to the same contract, plus `f1.live.openf1_source()` for the
+  live feed — both sources now supported.
 - Commit a small real F1 telemetry JSON fixture into `tests/fixtures/` for offline tests?
   → Resolved (M2): a **synthetic F1-shaped** fixture (`data/f1_monza_laps.csv`, via
   `tools/fixture_f1.py`) stands in offline; a real F1 fixture would need a license-legal,

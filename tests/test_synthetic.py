@@ -9,7 +9,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from pitmind.config import Config, REQUIRED_TELEMETRY_COLUMNS
+from pitmind.config import REQUIRED_TELEMETRY_COLUMNS, Config
 from synthetic import generator as gen
 
 DATA_DIR = Path(__file__).resolve().parent.parent / "data"
@@ -63,7 +63,7 @@ class TestSyntheticPhysics:
         # clean lap (no injected mistakes) should be fastest of the session
         per_lap_time = session.groupby("lap_number")["timestamp"].agg(lambda x: x.max() - x.min())
         clean = [1, 2]  # generator marks first two laps clean
-        dirty = [l for l in per_lap_time.index if l not in clean]
+        dirty = [lap for lap in per_lap_time.index if lap not in clean]
         assert per_lap_time.loc[clean].min() < per_lap_time.loc[dirty].min()
 
     def test_angles_sum_to_closed_loop(self):

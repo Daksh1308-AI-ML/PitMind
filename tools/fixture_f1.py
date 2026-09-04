@@ -66,10 +66,9 @@ def _to_fastf1_shape(contract: pd.DataFrame) -> pd.DataFrame:
 
 def generate_f1_lap_set(track: str = "monza", laps: int = 12, rng_seed: int | None = None) -> pd.DataFrame:
     """Produce a bridged F1-style contract CSV for the given circuit/lap count."""
-    from synthetic.generator import generate_session, RNG
     from f1.fastf1_bridge import FastF1Bridge
+    from synthetic.generator import RNG, generate_session
 
-    import numpy as np
     rng = np.random.default_rng(rng_seed) if rng_seed is not None else RNG
     session, _gt = generate_session(laps, track, rng=rng)
     # split into per-lap frames and reshape each to FastF1 form

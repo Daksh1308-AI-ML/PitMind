@@ -1,8 +1,18 @@
 [project]
 name = "pitmind"
-version = "0.1.0"
-description = "AI Driver Coach - real-time race engineer for ACC telemetry"
+version = "0.2.0"
+description = "AI Driver Coach - real-time race engineer for ACC + F1 telemetry"
+readme = "README.md"
 requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [{ name = "Daksh1308" }]
+keywords = ["sim-racing", "telemetry", "race-engineer", "fastf1", "streamlit", "shadcn"]
+classifiers = [
+    "Programming Language :: Python :: 3.11",
+    "License :: OSI Approved :: MIT License",
+    "Topic :: Multimedia :: Graphics :: 3D Rendering",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
 dependencies = [
     "numpy",
     "pandas",
@@ -13,13 +23,44 @@ dependencies = [
     "kaleido>=1.4.0",
 ]
 
+[project.urls]
+Repository = "https://github.com/Daksh1308-AI-ML/PitMind"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
 [project.optional-dependencies]
 recorder = ["pyaccsharedmemory"]
 f1 = ["fastf1"]
-test = ["pytest"]
+dev = ["pytest", "ruff"]
+
+[project.scripts]
+pitmind-tune = "tools.tune:main"
+pitmind-f1 = "f1.cli:main"
 
 [tool.setuptools.packages.find]
 include = ["pitmind*", "recorder*", "tools*", "dashboard*", "synthetic*", "f1*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+markers = [
+    "live: requires a running local Ollama / network source; run with pytest -m live",
+]
+addopts = "-ra"
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+exclude = ["f1/_cache"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B"]
+ignore = [
+    "E501",           # line length handled by formatter
+]
+fixable = ["I", "F401", "W291", "W292", "W293", "F541", "F811", "B007"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"

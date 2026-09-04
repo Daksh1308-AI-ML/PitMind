@@ -28,9 +28,10 @@ means for you when using, copying, or redistributing this project.
 - OpenF1 distributes F1 data for free, but the underlying data remains
   **© Formula One World Championship Ltd** and is restricted to **personal,
   non-commercial** use under the project's own educational terms.
-- The `f1/live.py` live race-engineer loop is designed to accept an OpenF1-style
-  source via the same source signature; the same non-commercial constraint
-  applies.
+- OpenF1 is now a first-class source: `f1/openf1.py` (dependency-light, stdlib
+  `urllib`) converts OpenF1 `car_data` to the same 13-column contract, and
+  `f1/live.openf1_source()` feeds the live race-engineer loop via the same
+  source signature as FastF1. The same **non-commercial** constraint applies.
 
 ## 3. Circuit / track geometry
 

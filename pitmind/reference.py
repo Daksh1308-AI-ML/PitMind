@@ -10,8 +10,8 @@ from dataclasses import dataclass
 
 import pandas as pd
 
+from pitmind import events
 from pitmind.config import Config
-from pitmind import corners, events, segmentation
 
 
 @dataclass(frozen=True)

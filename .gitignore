@@ -3,3 +3,7 @@ __pycache__/
 *.pyc
 .pytest_cache/
 data/*.csv
+*.egg-info/
+.ruff_cache/
+.env
+f1/_cache/

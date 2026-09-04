@@ -20,8 +20,8 @@ from __future__ import annotations
 
 import logging
 import time
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Callable, Optional
 
 import pandas as pd
 
@@ -43,12 +43,13 @@ class LiveLap:
     n_directives: int
     summary: str
     directives: list[str] = field(default_factory=list)
+    engineer_callout: str | None = None  # set only when an LLM provider is on
 
 
 def analyze_session(
     df: pd.DataFrame,
     cfg: Config,
-    capabilities: Optional[dict[str, bool]] = None,
+    capabilities: dict[str, bool] | None = None,
 ) -> LiveLap:
     """Analyse a single-lap slice and produce a race-engineer LiveLap."""
     from tools import tune  # heavy, defer import
@@ -61,6 +62,11 @@ def analyze_session(
         f"[{_severity(d.priority)}] {d.message}"
         for d in bundle["directives"][:5]
     ]
+    callout: str | None = None
+    if cfg.llm.enabled:
+        from pitmind import summarize
+        callout = summarize.engineer_callout(bundle, cfg, lap=lap_no,
+                                             capabilities=caps)
     return LiveLap(
         lap_number=lap_no,
         total_time_loss_s=bundle["total_time_loss_s"],
@@ -68,6 +74,7 @@ def analyze_session(
         n_directives=len(bundle["directives"]),
         summary=_summary_text(bundle["summary"]),
         directives=top_directives,
+        engineer_callout=callout,
     )
 
 
@@ -91,13 +98,13 @@ def _summary_text(summary: dict) -> str:
 
 
 def engineer_loop(
-    source: Callable[[], Optional[pd.DataFrame]],
+    source: Callable[[], pd.DataFrame | None],
     emit: Callable[[LiveLap], None],
     cfg: Config,
     *,
     interval_s: float = 3.0,
-    max_ticks: Optional[int] = None,
-    capabilities: Optional[dict[str, bool]] = None,
+    max_ticks: int | None = None,
+    capabilities: dict[str, bool] | None = None,
 ) -> None:
     """Poll ``source`` and emit a LiveLap for every new slice.
 
@@ -168,7 +175,7 @@ def fastf1_source(
     bridge = FastF1Bridge()
     seen_keys: set = set()
 
-    def _poll() -> Optional[pd.DataFrame]:
+    def _poll() -> pd.DataFrame | None:
         nonlocal seen_keys
         frames = fetch_session(year, event, session, driver)
         if not frames:
@@ -179,5 +186,37 @@ def fastf1_source(
             return None
         seen_keys.add(key)
         return session_df
+
+    return _poll
+
+
+def openf1_source(
+    session_key: int,
+    driver_number: int,
+    *,
+    base_url: str = "https://api.openf1.org/v1",
+    poll_laps: int = 1,
+):
+    """Live source that polls OpenF1 car_data for one driver+session.
+
+    Matches the same source signature as the FastF1 builder (returns a callable
+    yielding a fresh bridged 13-column slice, or ``None`` when nothing new is
+    available). OpenF1 exposes sub-second telemetry, so this is the live w/ full
+    laps feed. Network-only; callers select it via ``--source openf1``.
+    """
+    from f1.openf1 import fetch_car_data, to_contract
+
+    last_date: str | None = None
+
+    def _poll() -> pd.DataFrame | None:
+        nonlocal last_date
+        raw = fetch_car_data(session_key, driver_number, base_url=base_url)
+        if raw is None or len(raw) == 0:
+            return None
+        newest = raw["date"].max()
+        if last_date is not None and newest <= last_date:
+            return None
+        last_date = newest
+        return to_contract(raw)
 
     return _poll
