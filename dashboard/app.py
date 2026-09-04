@@ -20,6 +20,25 @@ from synthetic import generator as gen
 from dashboard import map_plot
 
 
+@st.cache_data
+def load_f1_drivers(track: str = "monza") -> dict[str, pd.DataFrame]:
+    """Load the offline multi-driver F1 fixture (bridged contract CSVs).
+
+    One CSV per driver in data/f1_<track>_driver_<CODE>.csv. If missing, warn
+    and return {} (the F1 tab degrades gracefully). These files exercise the
+    real F1 ingest path (bridge + pipeline) fully offline.
+    """
+    from f1 import comparison as _cmp  # noqa: F401
+    root = Path(__file__).resolve().parent.parent
+    codes = ["VER", "LEC", "SAI"]
+    out: dict[str, pd.DataFrame] = {}
+    for code in codes:
+        path = root / "data" / f"f1_{track}_driver_{code}.csv"
+        if path.exists():
+            out[code] = pd.read_csv(path)
+    return out
+
+
 st.set_page_config(
     page_title="PitMind — AI Driver Coach",
     page_icon="🏎️",
@@ -52,6 +71,37 @@ def process_session(_session: pd.DataFrame, cfg: Config) -> dict:
         "directives": directives,
         "totals": totals,
     }
+
+
+@st.cache_data
+def process_f1_comparison(_fields: dict[str, pd.DataFrame], cfg: Config) -> dict:
+    """Run multi-driver F1 comparison (M3) over the fixture field, cached."""
+    from f1 import comparison
+    comparisons = comparison.compare_drivers(_fields, cfg)
+    comp_df = comparison.comparison_to_dataframe(comparisons)
+    phrases = {c.driver: comparison.phrase_delta(c) for c in comparisons}
+    return {"comparisons": comparisons, "table": comp_df, "phrases": phrases}
+
+
+@st.cache_data
+def load_f1_overlay_metric(_driver_df: pd.DataFrame, lap_no: int,
+                           _cfg: Config) -> pd.DataFrame:
+    """Build the per-corner metric frame for the heat-map overlay (M4).
+
+    Uses the whole driver session (all laps) so delta-based time loss is
+    non-zero, then filters to the selected lap's corner rows.
+    """
+    from pitmind import features, mistakes, timeloss, preprocess, segmentation, corners as _corners
+    clean = preprocess.preprocess(_driver_df, _cfg)
+    laps = segmentation.valid_laps(clean)
+    first_lap_no = int(laps[0]["lap_number"].iloc[0])
+    lap_ref = clean[clean["lap_number"] == first_lap_no].reset_index(drop=True)
+    det = _corners.detect_corners(lap_ref, _cfg)
+    L = _corners.track_length_m(laps[0])
+    table = features.build_feature_table(clean, _cfg, detected_corners=det, L=L)
+    mlist = mistakes.detect_mistakes(table, _cfg, capabilities={"steering": False})
+    tlist = timeloss.estimate_time_loss(mlist, table, _cfg)
+    return map_plot.corner_metric_table(table, tlist, metric="time_loss_s")
 
 
 # Sidebar
@@ -89,13 +139,14 @@ with col3:
 st.divider()
 
 # Tabs
-tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
+tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
     "📊 Telemetry", 
     "🎯 Corners", 
     "⚠️ Mistakes", 
     "🏁 Potential Lap", 
     "📋 Coaching",
-    "🗺️ Track Map"
+    "🗺️ Track Map",
+    "🏎️ F1"
 ])
 
 # ---- TAB 1: Telemetry ----
@@ -345,6 +396,129 @@ with tab6:
         "view works for recorded ACC laps too. Red dots = detected corner apexes; "
         "green square = start/finish line; ribbon color = speed."
     )
+
+# ---- TAB 7: F1 (M3) ----
+with tab7:
+    st.subheader("🏎️ F1 Multi-Driver Comparison")
+
+    f1_fields = load_f1_drivers(track)
+    if not f1_fields:
+        st.info(
+            "No F1 fixture found. Generate it with:\n\n"
+            "`uv run python tools/fixture_f1.py --track monza --drivers "
+            "'{\\\"VER\\\":1,\\\"LEC\\\":2,\\\"SAI\\\":3}'`"
+        )
+    else:
+        with st.spinner("Running F1 analysis + comparison..."):
+            f1_results = process_f1_comparison(f1_fields, cfg)
+
+        comp_table = f1_results["table"]
+        phrases = f1_results["phrases"]
+
+        # ---- per-driver deltas ----
+        st.markdown("**Driver deltas vs field reference**")
+        for code, text in phrases.items():
+            st.info(f"**{code}**\n\n```\n{text}\n```")
+
+        # ---- track map on real F1 x/y ----
+        st.divider()
+        st.markdown("**Track map on real F1 telemetry (x/y path)**")
+        map_driver = st.selectbox("Driver track map", list(f1_fields.keys()),
+                                  index=0, key="f1_map_driver")
+        d_lap_nums = sorted(f1_fields[map_driver]["lap_number"].unique())
+        d_lap = st.selectbox("Lap", d_lap_nums, index=len(d_lap_nums) - 1,
+                             key="f1_map_lap")
+        f1_lap_df = f1_fields[map_driver][
+            f1_fields[map_driver]["lap_number"] == d_lap
+        ].sort_values("track_position").reset_index(drop=True)
+
+        # detect corners on this driver's first lap (F1 capability: no steering)
+        first_lap = f1_fields[map_driver][
+            f1_fields[map_driver]["lap_number"] == d_lap_nums[0]
+        ].reset_index(drop=True)
+        f1_corners = corners.detect_corners(first_lap, cfg)
+        fig_f1_map = map_plot.track_map_figure(
+            f1_lap_df, f1_corners,
+            color_by_speed=True,
+            title=f"{map_driver} L{d_lap} — {track.title()} (F1)",
+            ref=first_lap,
+        )
+        st.plotly_chart(fig_f1_map, use_container_width=True)
+        st.caption(
+            "Shape from the F1 x/y path (FastF1 X/Y in meters); corners (T1..Tn) "
+            "detected track-agnostically. Same map_plot code as ACC — no GeoJSON."
+        )
+
+        # ---- M4: multi-metric corner heat-map overlay ----
+        st.divider()
+        st.markdown("**Corner heat-map overlay**")
+        try:
+            over_df = load_f1_overlay_metric(map_driver, d_lap, cfg)
+            metric_choice = st.selectbox(
+                "Metric to heat-map", ["time_loss_s", "delta_apex_speed_kmh"],
+                index=0, key="f1_overlay_metric",
+            )
+            fig_ov = map_plot.corner_overlay_figure(
+                f1_lap_df, f1_corners, over_df, metric=metric_choice,
+                title=f"{map_driver} L{d_lap} — {metric_choice}",
+                ref=first_lap,
+            )
+            st.plotly_chart(fig_ov, use_container_width=True)
+            st.caption("Bubble size + color = metric magnitude at that corner "
+                       "(green = clean, red = high loss/deficit).")
+        except Exception as e:  # overlay is best-effort; never crash the tab
+            st.caption(f"Heat-map unavailable for this slice: {e}")
+
+        # ---- comparison table ----
+        st.divider()
+        st.markdown("**Corner-by-corner time-loss deltas**")
+        if not comp_table.empty:
+            st.dataframe(
+                comp_table.round(4),
+                use_container_width=True, hide_index=True,
+            )
+        else:
+            st.info("No corner deltas computed.")
+
+        # ---- M4: live race-engineer view (offline replay) ----
+        st.divider()
+        st.markdown("**Live race-engineer view**")
+        live_driver = st.selectbox("Live driver", list(f1_fields.keys()),
+                                   index=0, key="f1_live_driver")
+        st.caption(
+            "Replays each lap of the selected driver through the same analysis "
+            "loop a live FastF1/OpenF1 source would feed (see f1/live.py). "
+            "Press Run to stream all laps of this driver."
+        )
+        run_live = st.button("▶ Run live replay", key=f"run_live_{live_driver}")
+        if run_live:
+            from f1 import live as flive
+            the_laps = sorted(f1_fields[live_driver]["lap_number"].unique())
+            slices = [f1_fields[live_driver][
+                f1_fields[live_driver]["lap_number"] == n
+            ].copy() for n in the_laps]
+            src_state = {"i": 0}
+
+            def _src():
+                if src_state["i"] < len(slices):
+                    s = slices[src_state["i"]]
+                    src_state["i"] += 1
+                    return s
+                return None
+
+            stream = []
+            st.markdown("**Engineer feed**")
+            with st.spinner("Analysing live lap stream..."):
+                flive.engineer_loop(
+                    _src, stream.append, cfg, max_ticks=len(slices) + 1,
+                )
+            for lap in stream:
+                sev = "🟢" if lap.n_directives == 0 else "🟡"
+                st.markdown(f"- **{sev} L{lap.lap_number}** — {lap.summary}")
+                for d in lap.directives:
+                    st.caption(d)
+            if not stream:
+                st.info("No laps analysed — the fixture may be missing valid laps.")
 
 # Footer
 st.divider()

@@ -14,10 +14,11 @@ dependencies = [
 
 [project.optional-dependencies]
 recorder = ["pyaccsharedmemory"]
+f1 = ["fastf1"]
 test = ["pytest"]
 
 [tool.setuptools.packages.find]
-include = ["pitmind*", "recorder*", "tools*", "dashboard*", "synthetic*"]
+include = ["pitmind*", "recorder*", "tools*", "dashboard*", "synthetic*", "f1*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

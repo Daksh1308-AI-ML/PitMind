@@ -6,6 +6,7 @@ import os
 
 import pandas as pd
 import plotly.graph_objects as go
+import pytest
 
 from pitmind.config import Config
 from pitmind import corners
@@ -83,3 +84,75 @@ def test_track_map_figure_equal_aspect():
     fig = map_plot.track_map_figure(lap2)
     assert fig.layout.yaxis.scaleanchor == "x"
     assert fig.layout.yaxis.scaleratio == 1
+
+
+# --------------------------------------------------------------------------- #
+# M4: multi-metric corner heat-map overlay
+# --------------------------------------------------------------------------- #
+
+def _corner_metric_time_loss(lap1):
+    cfg = Config.from_file()
+    cs = corners.detect_corners(lap1, cfg)
+    # minimal feature table with the columns corner_overlay needs
+    ft = pd.DataFrame({
+        "corner": list(range(len(cs))),
+        "name": [f"T{i+1}" for i in range(len(cs))],
+        "delta_apex_speed_kmh": [-1.0 * (i + 1) for i in range(len(cs))],
+    })
+    return cs, ft
+
+
+def test_corner_metric_table_time_loss_agg():
+    lap1, _ = _load()
+    cs, ft = _corner_metric_time_loss(lap1)
+    cm = map_plot.corner_metric_table(ft, [], metric="time_loss_s")
+    assert len(cm) == len(cs)
+    assert (cm["time_loss_s"] == 0).all()
+
+
+def test_corner_metric_table_apex_speed():
+    lap1, _ = _load()
+    cs, ft = _corner_metric_time_loss(lap1)
+    cm = map_plot.corner_metric_table(ft, metric="delta_apex_speed_kmh")
+    assert len(cm) == len(cs)
+    assert "delta_apex_speed_kmh" in cm.columns
+
+
+def test_corner_overlay_figure_structure():
+    lap1, _ = _load()
+    cs, ft = _corner_metric_time_loss(lap1)
+    cm = map_plot.corner_metric_table(ft, metric="delta_apex_speed_kmh")
+    fig = map_plot.corner_overlay_figure(lap1, cs, cm, metric="delta_apex_speed_kmh")
+    assert isinstance(fig, go.Figure)
+    # track ribbon + corner heat-map
+    assert sum(1 for t in fig.data if t.mode == "lines") >= 1
+    corners_trace = [t for t in fig.data if t.name == "Corners"]
+    assert len(corners_trace) == 1
+    assert len(corners_trace[0].x) == len(cs)
+    assert corners_trace[0].marker.colorbar is not None
+
+
+def test_corner_overlay_figure_equal_aspect():
+    lap1, _ = _load()
+    cs, ft = _corner_metric_time_loss(lap1)
+    cm = map_plot.corner_metric_table(ft, metric="delta_apex_speed_kmh")
+    fig = map_plot.corner_overlay_figure(lap1, cs, cm, metric="delta_apex_speed_kmh")
+    assert fig.layout.yaxis.scaleanchor == "x"
+    assert fig.layout.yaxis.scaleratio == 1
+
+
+def test_corner_overlay_rejects_mismatched_corner_count():
+    lap1, _ = _load()
+    cs, ft = _corner_metric_time_loss(lap1)
+    cm = map_plot.corner_metric_table(ft, metric="delta_apex_speed_kmh")
+    cm = cm.iloc[:-1].reset_index(drop=True)  # drop one row -> mismatch
+    with pytest.raises(ValueError):
+        map_plot.corner_overlay_figure(lap1, cs, cm)
+
+
+def test_corner_overlay_rejects_unknown_metric():
+    lap1, _ = _load()
+    cs, ft = _corner_metric_time_loss(lap1)
+    cm = map_plot.corner_metric_table(ft, metric="delta_apex_speed_kmh")
+    with pytest.raises(KeyError):
+        map_plot.corner_overlay_figure(lap1, cs, cm, metric="nope")

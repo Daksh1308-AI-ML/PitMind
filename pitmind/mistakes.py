@@ -10,6 +10,7 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Literal
 
+import numpy as np
 import pandas as pd
 
 from pitmind.config import Config
@@ -108,16 +109,24 @@ def _classify_steering(steering_max: float, cfg: Config) -> tuple[MistakeType | 
 def detect_mistakes(
     feature_table: pd.DataFrame,
     cfg: Config,
+    capabilities: dict[str, bool] | None = None,
 ) -> list[Mistake]:
     """Run all mistake classifiers on the feature table.
 
     Args:
         feature_table: Output from features.build_feature_table (with delta columns)
         cfg: Configuration with thresholds
+        capabilities: Optional capability flags for the incoming channel set.
+            F1 broadcasts no `steering`, so callers pass
+            ``{"steering": False}`` and steering-based classes (EXCESS_STEERING)
+            are pruned (design.md "Capability flags for missing channels").
+            Defaults to full ACC capability ({}).
 
     Returns:
         List of Mistake objects (one per detected issue)
     """
+    caps = capabilities or {}
+    has_steering = caps.get("steering", True)
     mistakes: list[Mistake] = []
 
     for _, row in feature_table.iterrows():
@@ -174,8 +183,9 @@ def detect_mistakes(
                     message=f"Exit speed {abs(exit_delta):.1f}km/h below reference at {corner_name} (lap {lap})",
                 ))
 
-        # 5. Excess steering
-        steer = row.get("steering_max")
+        # 5. Excess steering (pruned when the source has no steering channel,
+        # e.g. F1 telemetry -- design.md capability flags)
+        steer = row.get("steering_max") if has_steering else np.nan
         if pd.notna(steer):
             mtype, conf, thresh = _classify_steering(steer, cfg)
             if mtype:

@@ -13,6 +13,9 @@ Usage:
     python -m tools.tune data/monza_real.csv                # validate only
     python -m tools.tune data/monza_real.csv --write        # apply suggested thresholds
     python -m tools.tune data/synthetic_generic_f1.csv      # sanity check on synthetic
+    python -m tools.tune data/f1_monza_laps.csv --f1        # F1 mode: prune steering,
+                                                            #   sanity-check corner + time-loss
+    python -m tools.tune data/f1_monza_laps.csv --f1 --f1-corners 7
 """
 from __future__ import annotations
 
@@ -55,8 +58,18 @@ def _tune_options(cfg: Config) -> dict:
 # ---------------------------------------------------------------------------
 # Pipeline run + report
 # ---------------------------------------------------------------------------
-def run_pipeline(df: pd.DataFrame, cfg: Config) -> dict:
-    """Run the whole PitMind pipeline and return an analysis bundle."""
+def run_pipeline(df: pd.DataFrame, cfg: Config, capabilities: dict[str, bool] | None = None) -> dict:
+    """Run the whole PitMind pipeline and return an analysis bundle.
+
+    Args:
+        df: Session DataFrame (13-column contract).
+        cfg: Configuration.
+        capabilities: Channel capability flags. F1 inputs pass
+            ``{"steering": False}`` so steering-based mistakes are pruned
+            (design.md "Capability flags for missing channels"). Default None
+            = full ACC capability.
+    """
+    caps = capabilities or {}
     clean = preprocess.preprocess(df, cfg)
     laps = segmentation.valid_laps(clean)
     if not laps:
@@ -68,7 +81,7 @@ def run_pipeline(df: pd.DataFrame, cfg: Config) -> dict:
     L = corners.track_length_m(laps[0])
 
     table = features.build_feature_table(clean, cfg, detected_corners=detected, L=L)
-    mlist = mistakes.detect_mistakes(table, cfg)
+    mlist = mistakes.detect_mistakes(table, cfg, capabilities=caps)
     summary = mistakes.summarize_mistakes(mlist)
     tlist = timeloss.estimate_time_loss(mlist, table, cfg)
     total_loss = sum(t.time_loss_s for t in tlist)
@@ -91,7 +104,59 @@ def run_pipeline(df: pd.DataFrame, cfg: Config) -> dict:
         "potential_lap": pot,
         "directives": directives,
         "lap_times": [lap["timestamp"].max() - lap["timestamp"].min() for lap in laps],
+        "capabilities": caps,
     }
+
+
+# ---------------------------------------------------------------------------
+# F1 sanity checks (todo.md M2: make the engine trust F1 data)
+# ---------------------------------------------------------------------------
+def sanity_check_f1(bundle: dict, expected_corners: int = 7, corner_tol: int = 2,
+                    max_time_loss_s: float = 5.0) -> dict:
+    """Sanity-check an F1 analysis bundle.
+
+    Verifies the core engine behaves sensibly on real-F1-shaped data:
+      1. corner count lands near the circuit's known value (Monza ~7),
+      2. steering-based mistakes are pruned (F1 has no steering channel),
+      3. time-loss estimates stay within a sane physical range per mistake.
+
+    Returns a dict of check_name -> passed (bool), plus a human summary.
+    """
+    checks: dict[str, bool] = {}
+    notes: list[str] = []
+
+    n_corners = len(bundle["corners"])
+    checks["corner_count"] = abs(n_corners - expected_corners) <= corner_tol
+    notes.append(f"corners detected={n_corners} expected~{expected_corners} "
+                 f"(tol ±{corner_tol}) -> {'OK' if checks['corner_count'] else 'SUSPECT'}")
+
+    # F1 inputs MUST run with the steering capability disabled (design.md).
+    caps = bundle.get("capabilities", {}) or {}
+    steering_off = caps.get("steering", True) is False
+    checks["steering_pruned"] = steering_off
+    notes.append(f"steering capability off (F1 mode)={steering_off}")
+
+    losses = [t.time_loss_s for t in bundle["time_losses"]]
+    in_range = all(0.0 <= l <= max_time_loss_s for l in losses) if losses else True
+    checks["time_loss_range"] = in_range
+    mx = max(losses) if losses else 0.0
+    notes.append(f"time-loss range [0, {mx:.2f}]s (cap {max_time_loss_s}s) -> "
+                 f"{'OK' if in_range else 'SUSPECT'}")
+
+    return {"checks": checks, "notes": notes}
+
+
+def print_f1_sanity(bundle: dict, expected_corners: int = 7, corner_tol: int = 2) -> None:
+    """Run and print the F1 sanity checks for a bundle."""
+    result = sanity_check_f1(bundle, expected_corners=expected_corners, corner_tol=corner_tol)
+    print("-" * 60)
+    print("F1 sanity checks")
+    for note in result["notes"]:
+        print(f"  {note}")
+    if all(result["checks"].values()):
+        print("  RESULT: PASS - engine trusts this F1 input")
+    else:
+        print("  RESULT: CHECK - review the failing check(s) above")
 
 
 def _fmt_time(s: float) -> str:
@@ -189,7 +254,8 @@ def suggest_thresholds(bundle: dict) -> dict:
 
         # find the |value| threshold that flags ~target of samples
         if values.empty:
-            out[col] = {"path": path, "current": None, "recommended": None, "flag_rate": None}
+            out[col] = {"path": path, "current": None, "recommended": None,
+                        "flag_rate": None, "p50": None, "p85": None}
             continue
         mags = np.abs(values.to_numpy(dtype=float))
         current = _current_threshold(bundle["cfg"], path)
@@ -233,8 +299,11 @@ def _print_threshold_diagnostics(bundle: dict) -> None:
         rec = info["recommended"]
         rec_str = f"{rec:.2f}" if rec is not None else "n/a"
         flag = info["flag_rate"]
+        flag_str = f"{flag:.0%}" if flag is not None else "n/a"
+        p50 = f"{info['p50']:.2f}" if info["p50"] is not None else "n/a"
+        p85 = f"{info['p85']:.2f}" if info["p85"] is not None else "n/a"
         print(f"  {col:24s} current={cur_str!s:28s} rec={rec_str:>8s} "
-              f"flag_rate={flag:.0%} p50={info['p50']:.2f} p85={info['p85']:.2f}")
+              f"flag_rate={flag_str:>6s} p50={p50:>6s} p85={p85:>6s}")
 
 
 # ---------------------------------------------------------------------------
@@ -279,6 +348,13 @@ def main(argv: list[str] | None = None) -> int:
                         help="Apply recommended thresholds to config.yaml")
     parser.add_argument("--config", default=str(CONFIG_PATH),
                         help="config.yaml path (default: project config)")
+    parser.add_argument("--f1", action="store_true",
+                        help="Run in F1 mode: prune steering-based mistakes (F1 has no "
+                             "steering channel) and sanity-check corner count + time-loss "
+                             "ranges against a real-F1-shaped lap set (todo.md M2)")
+    parser.add_argument("--f1-corners", type=int, default=7,
+                        help="Expected corner count for the --f1 sanity check (default 7 "
+                             "= Monza). Pass the circuit's known value (spa ~19, silverstone ~17)")
     args = parser.parse_args(argv)
 
     csv_path = Path(args.csv)
@@ -288,13 +364,18 @@ def main(argv: list[str] | None = None) -> int:
     cfg = Config.from_file(args.config)
     df = pd.read_csv(csv_path)
 
+    caps = {"steering": False} if args.f1 else None
+
     try:
-        bundle = run_pipeline(df, cfg)
+        bundle = run_pipeline(df, cfg, capabilities=caps)
     except ValueError as exc:
         print(f"Pipeline error: {exc}", file=sys.stderr)
         return 3
 
     print_report(bundle)
+
+    if args.f1:
+        print_f1_sanity(bundle, expected_corners=args.f1_corners)
 
     if args.write:
         suggestions = suggest_thresholds(bundle)
