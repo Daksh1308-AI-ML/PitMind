@@ -10,6 +10,7 @@ dependencies = [
     "streamlit",
     "plotly",
     "pyyaml",
+    "kaleido>=1.4.0",
 ]
 
 [project.optional-dependencies]

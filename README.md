@@ -10,6 +10,20 @@ It is fully deterministic and track-agnostic, built on the principle that the
 time-loss estimation are all done with physics/rule-based code, not a language
 model.
 
+## 📸 Result
+
+Real F1 (Monza) telemetry rendered by the dashboard's track-map engine — the
+circuit is drawn purely from the lap's own `x`/`y` path (no GeoJSON), corners are
+detected automatically, and the heat-map overlay highlights exactly where time
+is lost.
+
+| Speed-colored track map | Corner time-loss heat-map |
+|---|---|
+| ![Monza speed map](docs/images/f1_monza_speed_map.png) | ![Monza time-loss heat-map](docs/images/f1_monza_time_loss_heatmap.png) |
+
+The coach turns the same analysis into race-engineer directives, e.g.
+> **"VER loses 7.82 s to SAI across the lap — T3 +2.92 s by braking 31.3 m late."**
+
 ---
 
 ## What it does
